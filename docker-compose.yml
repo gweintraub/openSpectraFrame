@@ -1,0 +1,29 @@
+version: '3.8'
+services:
+    family-portal:
+        build: .
+        container_name: family_custom_portal
+        restart: unless-stopped
+        env_file:
+            - .env
+        environment:
+            - WEB_DOCUMENT_ROOT=/app
+            - APPLICATION_UID=1026
+            - APPLICATION_GID=100
+            - PHP_UPLOAD_MAX_FILESIZE=250M
+            - PHP_POST_MAX_SIZE=255M
+            - NGINX_CLIENT_BODY_BUFFER_SIZE=250
+            - SERVICE_NGINX_CLIENT_MAX_BODY_SIZE=250M
+            - PHP_MEMORY_LIMIT=512M
+            - PHP_DISPLAY_ERRORS=1
+        volumes:
+            - ${DATA_PATH}/web:/app
+            - ${DATA_PATH}/nginx.conf:/opt/docker/etc/nginx/vhost.conf:ro
+
+    cloudflared:
+        image: cloudflare/cloudflared:latest
+        container_name: cloudflared_tunnel
+        restart: unless-stopped
+        env_file:
+            - .env
+        command: tunnel --no-autoupdate run

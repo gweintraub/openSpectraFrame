@@ -1,0 +1,43 @@
+# ==========================================
+# SECRET & CONFIG FILES (NEVER UPLOAD)
+# ==========================================
+.env
+config.php
+secrets.h
+
+# ==========================================
+# SYSTEM & NAS PREVIEW CLUTTER
+# ==========================================
+@eaDir/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ==========================================
+# BUILD ARTIFACTS / UPLOADS
+# ==========================================
+/web/photos/*
+!/web/photos/.gitkeep
+/web/battery.json
+.pio/
+*.bin
+*.elf
+
+# ==========================================
+# RUNTIME GENERATED APP FILES
+# ==========================================
+history.json
+palette.png
+ready_for_frame.png
+
+# ==========================================
+# PYTHON & PIPELINE ARTIFACTS
+# ==========================================
+temp_base.png
+temp_clean.png
+temp_fg_mask.png
+temp_bg_mask.png
+__pycache__/
+*.py[cod]
+venv/
+.venv/

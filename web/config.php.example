@@ -1,0 +1,10 @@
+<?php
+//config.php.example - Safe template for Github
+
+define('HARDWARE_DOMAIN', 'hardware.yourdomain.com');
+define('HUMAN_UI_URL', 'https://yourdomain.com');
+
+//your secret family password
+define('PORTAL_PASSWORD', 'YOUR_SECURE_PASSWORD'); 
+
+?>
