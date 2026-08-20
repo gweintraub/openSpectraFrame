@@ -44,6 +44,7 @@ flowchart TD
         AI --> Storage[(File Storage<br>/photos, json, png)]
         Engine --> Storage
     end
+```
 
 ## Hardware Setup & Flashing
 This project uses an ESP32 connected to an E-Ink display. Because the high-resolution images are larger than the ESP32's internal memory, **PSRAM is strictly required.**
