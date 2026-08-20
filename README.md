@@ -25,9 +25,10 @@ A full-stack IoT system featuring an ESP32 physical hardware display and a PHP/N
 ├── .gitignore # Keeps personal data out of the repo
 ├── LICENSE # MIT License
 └── README.md # Project documentation
+```
 
 ## System Architecture
-mermaid
+```mermaid
 flowchart TD
     User([Human User / Web Browser]) -->|Uploads photos & triggers updates| Tunnel{Cloudflare Tunnel}
     Frame([E-Ink Frame / XIAO ESP32-S3]) -->|Sends telemetry & fetches PNG| Router{Local Wi-Fi Router}
