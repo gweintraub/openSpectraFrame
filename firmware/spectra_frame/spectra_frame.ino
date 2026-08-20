@@ -398,12 +398,21 @@ bool fetchAndDisplayImage(float batteryVoltage, int state) {
         WiFiClient* stream = http->getStreamPtr();
         int bytesRead = 0;
 
+        unsigned long timeoutStart = millis();
+
         while (http->connected() && bytesRead < totalBytes) {
           size_t available = stream->available();
           if (available) {
             if (bytesRead + available > totalBytes) { available = totalBytes - bytesRead; }
             int c = stream->readBytes(imgBuffer + bytesRead, available);
             bytesRead += c;
+            timeoutStart = millis();  // Reset timeout clock because we got good data
+          } else {
+            // SAFETY NET: If 10 full seconds pass without a single byte arriving, abort!
+            if (millis() - timeoutStart > 10000) {
+              Serial.println("WARNING: Network stalled. Aborting download to prevent battery drain.");
+              break;
+            }
           }
           delay(1);
         }
