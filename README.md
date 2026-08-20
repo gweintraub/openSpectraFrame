@@ -2,6 +2,7 @@
 
 This diagram illustrates how the hardware, web portal, and AI processing pipeline interact. The ESP32 acts as a lightweight client, offloading all machine learning, image processing, and telemetry tracking to the Docker container.
 
+```
        [ Human User ]                                  [ E-Ink Photo Frame ]
         (Web Browser)                                   (XIAO ESP32-S3)
               │                                                │
@@ -29,9 +30,11 @@ This diagram illustrates how the hardware, web portal, and AI processing pipelin
  │ │  (/photos, frame_state.json, ready_for_frame.png)                   │ │
  │ └─────────────────────────────────────────────────────────────────────┘ │
  └─────────────────────────────────────────────────────────────────────────┘
+```
 
 ## Repository Structure
 
+```
 ├── firmware/                   
 │   └── spectra_frame/          # ESP32 C++ Source Code
 │       ├── spectra_frame.ino   # Main state machine and sleep logic
@@ -58,6 +61,7 @@ This diagram illustrates how the hardware, web portal, and AI processing pipelin
 ├── .gitignore                  # Keeps personal data out of the repo
 ├── LICENSE                     # MIT License
 └── README.md                   # Project documentation
+```
 
 ## Core Components
 
