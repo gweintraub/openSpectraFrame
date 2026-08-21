@@ -7,6 +7,7 @@
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <time.h>
+#include <Preferences.h>  // For permanent flash storage
 #include "secrets.h"
 
 #if !defined(BOARD_HAS_PSRAM)
@@ -26,6 +27,8 @@ RTC_DATA_ATTR uint32_t next_midnight_epoch = 0;  // Tracks the next daily update
 RTC_DATA_ATTR float peak_charge_voltage = 0.0;
 RTC_DATA_ATTR int network_ping_counter = 0;
 RTC_DATA_ATTR bool is_gift_transit = false;  // Tracks if are in fast-pulse gift mode
+
+String current_timezone = "EST5EDT,M3.2.0,M11.1.0";  // Default, will be overwritten
 
 // ----------------------------------------------------
 // ORIGINAL, FLAWLESS COLOR RENDERING METHOD
@@ -116,6 +119,12 @@ long getSecondsUntilNextWake(int targetHour, int targetMinute) {
 void setup() {
   Serial.begin(115200);
 
+  // --- RETRIEVE SAVED TIMEZONE ---
+  Preferences preferences;
+  preferences.begin("frame", true);                                          // Open in read-only mode
+  current_timezone = preferences.getString("tz", "EST5EDT,M3.2.0,M11.1.0");  // Default to EST if missing
+  preferences.end();
+
   // --- 1. SILENT HEARTBEAT: READ BATTERY FIRST ---
   // Notice we have NOT initialized the screen or Wi-Fi yet.
   float batteryVoltage = readBatteryVoltage();
@@ -203,64 +212,64 @@ void setup() {
 
   bool needsUpdate = stateChanged || timeForDailyUpdate || isFirstBoot || isRetry;
 
-// ==========================================
-// Decoupled Network Ping for Manual Updates
-// ==========================================
-if (!needsUpdate) {
-if (is_gift_transit) {
-Serial.println("Transit Mode Active: Suppressing network ping to protect battery in the box.");
-} else {
-// If charging (state 2), check every 1 cycle (5 mins).
-// If on battery, check every 3 cycles (15 mins).
-int ping_threshold = (frame_state == 2) ? 1 : 3;
-network_ping_counter++;
+  // ==========================================
+  // Decoupled Network Ping for Manual Updates
+  // ==========================================
+  if (!needsUpdate) {
+    if (is_gift_transit) {
+      Serial.println("Transit Mode Active: Suppressing network ping to protect battery in the box.");
+    } else {
+      // If charging (state 2), check every 1 cycle (5 mins).
+      // If on battery, check every 3 cycles (15 mins).
+      int ping_threshold = (frame_state == 2) ? 1 : 3;
+      network_ping_counter++;
 
-if (network_ping_counter >= ping_threshold) {
-network_ping_counter = 0; // Reset the counter
+      if (network_ping_counter >= ping_threshold) {
+        network_ping_counter = 0;  // Reset the counter
 
-Serial.print("Network heartbeat threshold reached. Pinging server...");
+        Serial.print("Network heartbeat threshold reached. Pinging server...");
 
-WiFi.mode(WIFI_STA);
-WiFi.begin();
+        WiFi.mode(WIFI_STA);
+        WiFi.begin();
 
-int timeoutCounter = 0;
-while (WiFi.status() != WL_CONNECTED && timeoutCounter < 10) {
-delay(500);
-Serial.print(".");
-timeoutCounter++;
-}
+        int timeoutCounter = 0;
+        while (WiFi.status() != WL_CONNECTED && timeoutCounter < 10) {
+          delay(500);
+          Serial.print(".");
+          timeoutCounter++;
+        }
 
-if (WiFi.status() == WL_CONNECTED) {
-WiFiClientSecure checkClient;
-checkClient.setInsecure();
-HTTPClient checkHttp;
+        if (WiFi.status() == WL_CONNECTED) {
+          WiFiClientSecure checkClient;
+          checkClient.setInsecure();
+          HTTPClient checkHttp;
 
-String checkUrl = String(image_url);
-checkUrl.replace("gallery.php", "check_update.php");
+          String checkUrl = String(image_url);
+          checkUrl.replace("gallery.php", "check_update.php");
 
-checkHttp.begin(checkClient, checkUrl);
-checkHttp.addHeader("X-API-Key", api_key);
+          checkHttp.begin(checkClient, checkUrl);
+          checkHttp.addHeader("X-API-Key", api_key);
 
-if (checkHttp.GET() == HTTP_CODE_OK && checkHttp.getString() == "1") {
-Serial.println("\nManual update requested by portal!");
-needsUpdate = true;
-} else {
-Serial.println("\nNo updates pending.");
-WiFi.disconnect(true);
-WiFi.mode(WIFI_OFF);
-}
-checkHttp.end();
-} else {
-Serial.println("\nWiFi timeout. Sleeping.");
-WiFi.disconnect(true);
-WiFi.mode(WIFI_OFF);
-}
-} else {
-Serial.printf("Silent hardware heartbeat only. Skipping network ping (%d/%d).\n", network_ping_counter, ping_threshold);
-}
-}
-}
-// ==========================================
+          if (checkHttp.GET() == HTTP_CODE_OK && checkHttp.getString() == "1") {
+            Serial.println("\nManual update requested by portal!");
+            needsUpdate = true;
+          } else {
+            Serial.println("\nNo updates pending.");
+            WiFi.disconnect(true);
+            WiFi.mode(WIFI_OFF);
+          }
+          checkHttp.end();
+        } else {
+          Serial.println("\nWiFi timeout. Sleeping.");
+          WiFi.disconnect(true);
+          WiFi.mode(WIFI_OFF);
+        }
+      } else {
+        Serial.printf("Silent hardware heartbeat only. Skipping network ping (%d/%d).\n", network_ping_counter, ping_threshold);
+      }
+    }
+  }
+  // ==========================================
 
   if (!needsUpdate) {
     // We are done. Go back to sleep immediately. Total awake time: < 0.1 seconds.
@@ -309,32 +318,58 @@ Serial.printf("Silent hardware heartbeat only. Skipping network ping (%d/%d).\n"
     timeoutCounter++;
   }
 
+  // ---> THIS IS THE LINE THAT GOT DELETED! <---
   if (WiFi.status() != WL_CONNECTED) {
-    // NEW: Transit Mode Protection
-    // Only launch the power-hungry Setup Portal if the frame is plugged into the wall
+
     if (frame_state == 2 || frame_state == 3) {
       Serial.println("\nNo stored network found. Launching safe portal...");
       WiFiManager wm;
-      wm.setConfigPortalTimeout(180);  // 3 minutes to type passwords
+      wm.setConfigPortalTimeout(180);
+
+      // 1. Build the HTML dropdown menu for the portal
+      const char* custom_html =
+        "<br/><label for='tz'><b>Time Zone</b></label><br/>"
+        "<select name='tz' id='tz' style='width:100%; padding:5px;'>"
+        "<option value='EST5EDT,M3.2.0,M11.1.0'>Eastern Time</option>"
+        "<option value='CST6CDT,M3.2.0,M11.1.0'>Central Time</option>"
+        "<option value='MST7MDT,M3.2.0,M11.1.0'>Mountain Time</option>"
+        "<option value='PST8PDT,M3.2.0,M11.1.0'>Pacific Time</option>"
+        "</select><br/>";
+
+      // 2. Inject it into WiFiManager
+      WiFiManagerParameter custom_tz("tz", custom_html, "", 50, " \n");
+      wm.addParameter(&custom_tz);
 
       if (!wm.autoConnect("Frame Setup")) {
         Serial.println("Failed to connect or hit timeout.");
       } else {
-        // Successfully connected via portal! Turn off transit mode.
-        is_gift_transit = false;
+        Serial.println("Successfully connected via portal!");
+        is_gift_transit = false;  // Turn off transit mode
+
+        // 3. Catch the dropdown selection and save it permanently to flash memory!
+        String selected_tz = custom_tz.getValue();
+        if (selected_tz.length() > 5) {
+          preferences.begin("frame", false);  // Open in read/write mode
+          preferences.putString("tz", selected_tz);
+          preferences.end();
+          current_timezone = selected_tz;
+          Serial.printf("New Timezone Saved to Flash: %s\n", current_timezone.c_str());
+        }
       }
     } else {
       Serial.println("\nNo stored network found, but running on battery.");
       Serial.println("Transit Mode Active: Skipping portal to save power. Device must be plugged in to setup.");
     }
-  } else {
+
+  }  // <--- This brace now properly closes the missing IF statement
+  else {
     Serial.println("\nConnected silently!");
     is_gift_transit = false;  // Turn off transit mode if connected normally
   }
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("Syncing clock via NTP...");
-    configTzTime("EST5EDT,M3.2.0,M11.1.0", "pool.ntp.org", "time.nist.gov");
+    configTzTime(current_timezone.c_str(), "pool.ntp.org", "time.nist.gov");
 
     // Wait up to 7.5 seconds for NTP to lock (Epoch time > 1.6 billion = year 2020+)
     time_t currentTime = time(NULL);
