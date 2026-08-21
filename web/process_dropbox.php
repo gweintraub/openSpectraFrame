@@ -1,4 +1,10 @@
 <?php
+// Block all web browsers! Only allow execution via local command line (Cron / Docker exec)
+if (php_sapi_name() !== 'cli') {
+    http_response_code(403);
+    die("❌ 403 Forbidden: Direct web access is not allowed.");
+}
+
 $flag_file = __DIR__ . '/photos/manual_request.txt';
 $state_file = __DIR__ . '/frame_state.json';
 $log_file = __DIR__ . '/photos/debug.txt';
