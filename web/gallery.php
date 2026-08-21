@@ -11,7 +11,7 @@ $SECRET_KEY = defined('FRAME_API_KEY') ? FRAME_API_KEY : getenv('FRAME_API_KEY')
 $requestKey = $_SERVER['HTTP_X_API_KEY'] ?? '';
 
 // 3. If the key is missing or wrong, lock down the script immediately
-if (empty($SECRET_KEY) || $requestKey !== $SECRET_KEY) {
+if (empty($SECRET_KEY) || !hash_equals($SECRET_KEY, $requestKey)) {
     http_response_code(403);
     die("❌ 403 Forbidden: Server key empty or mismatch.");
 }

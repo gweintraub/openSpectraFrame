@@ -5,7 +5,7 @@ require_once __DIR__ . '/config.php';
 $provided_key = $_SERVER['HTTP_X_API_KEY'] ?? '';
 
 $SECRET_KEY = defined('FRAME_API_KEY') ? FRAME_API_KEY : getenv('FRAME_API_KEY');
-if (empty($SECRET_KEY) || $provided_key !== $SECRET_KEY) {
+if (empty($SECRET_KEY) || !hash_equals($SECRET_KEY, $provided_key)) {
     http_response_code(403);
     exit;
 }
