@@ -66,10 +66,66 @@ if (isset($_POST['logout'])) {
     exit;
 }
 
-if (isset($_POST['password']) && $_POST['password'] === $FAMILY_PASSWORD) {
-    $_SESSION['authenticated'] = true;
-    header("Location: " . $_SERVER['PHP_SELF']);
+// ==========================================
+// LOGIN RATE LIMITING
+// ==========================================
+// Cloudflare Tunnel terminates the real connection, so REMOTE_ADDR here would
+// just be cloudflared's own address for every visitor. Use the header Cloudflare
+// sets with the real client IP, and only trust it because ingress is tunnel-only
+// (no port is exposed directly to the internet, so this header can't be spoofed
+// by an outside attacker hitting nginx directly).
+function get_client_ip()
+{
+    return $_SERVER['HTTP_CF_CONNECTING_IP'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+}
+
+$ATTEMPTS_FILE = __DIR__ . '/login_attempts.json';
+$MAX_ATTEMPTS = 5;
+$LOCKOUT_SECONDS = 300; // 5 minutes
+
+$client_ip = get_client_ip();
+$attempts = file_exists($ATTEMPTS_FILE) ? json_decode(file_get_contents($ATTEMPTS_FILE), true) : [];
+if (!is_array($attempts)) $attempts = [];
+
+// Prune anything for this IP whose lockout window has already expired,
+// so the file doesn't grow forever and old strikes don't linger.
+if (isset($attempts[$client_ip]) && (time() - $attempts[$client_ip]['first_attempt']) > $LOCKOUT_SECONDS) {
+    unset($attempts[$client_ip]);
+}
+
+$is_locked_out = isset($attempts[$client_ip]) && $attempts[$client_ip]['count'] >= $MAX_ATTEMPTS;
+$seconds_remaining = $is_locked_out
+    ? max(0, $LOCKOUT_SECONDS - (time() - $attempts[$client_ip]['first_attempt']))
+    : 0;
+
+if ($is_locked_out && $seconds_remaining > 0) {
+    http_response_code(429);
+    $wait_minutes = ceil($seconds_remaining / 60);
+    echo '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{background:#1c1c1e;color:#fff;font-family:sans-serif;}</style></head><body>';
+    echo '<div style="max-width:400px;margin:100px auto;text-align:center;padding:20px;border:1px solid #ff453a;background:#2c1414;border-radius:12px;">';
+    echo '<h2 style="color:#ff453a;margin-top:0;">🔒 Too Many Attempts</h2>';
+    echo '<p style="color:#eaeaea;font-size:14px;line-height:1.5;">Try again in about ' . $wait_minutes . ' minute(s).</p>';
+    echo '</div></body></html>';
     exit;
+}
+
+if (isset($_POST['password'])) {
+    if (hash_equals($FAMILY_PASSWORD, $_POST['password'])) {
+        // Success — clear any strikes for this IP
+        unset($attempts[$client_ip]);
+        file_put_contents($ATTEMPTS_FILE, json_encode($attempts));
+
+        $_SESSION['authenticated'] = true;
+        header("Location: " . $_SERVER['PHP_SELF']);
+        exit;
+    } else {
+        // Failure — record a strike
+        if (!isset($attempts[$client_ip])) {
+            $attempts[$client_ip] = ['count' => 0, 'first_attempt' => time()];
+        }
+        $attempts[$client_ip]['count']++;
+        file_put_contents($ATTEMPTS_FILE, json_encode($attempts));
+    }
 }
 
 // ==========================================
