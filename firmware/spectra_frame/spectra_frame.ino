@@ -17,7 +17,7 @@
 EPaper epaper;
 PNG png;
 
-const bool DEV_MODE = false;
+const bool DEV_MODE = true;
 
 // --- VARIABLES THAT SURVIVE DEEP SLEEP ---
 RTC_DATA_ATTR int retryCount = 0;
@@ -119,45 +119,80 @@ long getSecondsUntilNextWake(int targetHour, int targetMinute) {
 void setup() {
   Serial.begin(115200);
 
+  // ==========================================
+  // ELEGANT WI-FI WIPE (Zero Battery Waste)
+  // ==========================================
+  esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+
+  // If the device did NOT wake up from the sleep timer, a human just reset it or powered it on.
+  if (wakeup_reason != ESP_SLEEP_WAKEUP_TIMER) {
+    Serial.println("\n[Human Reset Detected] You have 10 SECONDS to press the BOOT button...");
+    pinMode(0, INPUT_PULLUP);
+    bool wipeRequested = false;
+
+    // Give the user a full 10-second window to press the button
+    for (int i = 0; i < 100; i++) {
+      if (digitalRead(0) == LOW) {
+        wipeRequested = true;
+        break;  // The moment you press it, it moves on. You don't have to hold it!
+      }
+      delay(100);
+    }
+
+    if (wipeRequested) {
+      Serial.println("\n[!] WIPE COMMAND DETECTED: Erasing saved Wi-Fi credentials...");
+      WiFiManager wm;
+      wm.resetSettings();
+      is_gift_transit = true;  // Enable fast-pulse transit mode
+      delay(1000);             // Give flash memory time to clear
+    } else {
+      Serial.println("No wipe requested. Booting normally...");
+    }
+  }
+
   // --- RETRIEVE SAVED TIMEZONE ---
   Preferences preferences;
-  preferences.begin("frame", false);                                          // Open in read-only mode
-  current_timezone = preferences.getString("tz", "EST5EDT,M3.2.0,M11.1.0");  // Default to EST if missing
+  preferences.begin("frame", false);
+  current_timezone = preferences.getString("tz", "EST5EDT,M3.2.0,M11.1.0");
   preferences.end();
 
   // --- 1. SILENT HEARTBEAT: READ BATTERY FIRST ---
-  // Notice we have NOT initialized the screen or Wi-Fi yet.
   float batteryVoltage = readBatteryVoltage();
   bool stateChanged = false;
   int previous_state = frame_state;
 
-  // --- THE ADAPTIVE HYSTERESIS ENGINE ---
-
-  // 1. DETECT CHARGER
+  // --- ROBUST BATTERY INITIALIZATION & HYSTERESIS ---
   bool isPluggedIn = false;
-  if (last_voltage > 0.0) {
-    isPluggedIn = ((batteryVoltage - last_voltage) >= 0.04);
-  }
-
-  // 2. DETECT UNPLUG
   bool isUnplugged = false;
-  if (peak_charge_voltage > 0.0) {
-    // Even at 100%, physically severing the 5V USB cord causes an immediate drop of at least 0.02V
-    isUnplugged = ((peak_charge_voltage - batteryVoltage) >= 0.02);
-  }
 
-  // 3. UPDATE FLOOR (Anchored)
-  if (frame_state == 0 || frame_state == 1) {
-    // CRITICAL: Only lower the floor. Never raise it.
-    // This allows a slow trickle charge to accumulate until it trips the trigger.
-    if (last_voltage == 0.0 || batteryVoltage < last_voltage) {
+  // 1. ESTABLISH BASELINE ON FRESH BOOT
+  if (last_voltage == 0.0) {
+    // If voltage is abnormally high (4.15V+), the USB charge controller MUST be active.
+    // A resting LiPo alone will not sustain 4.15V+ under ESP32 boot load.
+    if (batteryVoltage >= 4.15) {
+      frame_state = 3;
+      peak_charge_voltage = batteryVoltage;
+      isPluggedIn = true;
+    } else {
       last_voltage = batteryVoltage;
+      frame_state = (batteryVoltage <= 3.55) ? 1 : 0;
     }
   }
+  // 2. NORMAL OPERATION (Tracking jumps and drops)
+  else {
+    isPluggedIn = ((batteryVoltage - last_voltage) >= 0.04);
 
-  // 4. UPDATE CEILING
-  if (frame_state == 2 || frame_state == 3) {
-    if (peak_charge_voltage == 0.0 || batteryVoltage > peak_charge_voltage) {
+    if (peak_charge_voltage > 0.0) {
+      isUnplugged = ((peak_charge_voltage - batteryVoltage) >= 0.02);
+    }
+
+    // Only lower the floor, never raise it.
+    if ((frame_state == 0 || frame_state == 1) && batteryVoltage < last_voltage) {
+      last_voltage = batteryVoltage;
+    }
+
+    // Only raise the ceiling, never lower it.
+    if ((frame_state == 2 || frame_state == 3) && batteryVoltage > peak_charge_voltage) {
       peak_charge_voltage = batteryVoltage;
     }
   }
@@ -184,15 +219,12 @@ void setup() {
       frame_state = 3;
     }
   } else if (frame_state == 3) {
-    // SAFETY NET: If the tiny 0.02V unplug drop is missed, guarantee the green screen
-    // clears automatically once the battery drops below true full capacity.
     if (isUnplugged || batteryVoltage <= 4.13) {
       frame_state = 0;
       last_voltage = batteryVoltage;
     }
   }
 
-  // Check if the state machine actually moved us to a new state
   if (frame_state != previous_state) {
     stateChanged = true;
   }
@@ -200,33 +232,21 @@ void setup() {
   Serial.printf("Battery: %.2fV | Last: %.2fV | State: %d\n", batteryVoltage, last_voltage, frame_state);
 
   // --- 2. DECIDE IF WE NEED TO WAKE THE SYSTEM UP ---
-  // The ESP32 RTC clock keeps tracking time even in deep sleep.
   time_t now = time(NULL);
-
-  // Did we cross the midnight update target?
   bool timeForDailyUpdate = (now >= next_midnight_epoch) && (next_midnight_epoch > 0);
-  // Is this the very first boot?
   bool isFirstBoot = (next_midnight_epoch == 0);
-  // Are we trying to recover from a failed image download?
   bool isRetry = (retryCount > 0 && retryCount < 3);
-
   bool needsUpdate = stateChanged || timeForDailyUpdate || isFirstBoot || isRetry;
 
-  // ==========================================
-  // Decoupled Network Ping for Manual Updates
-  // ==========================================
   if (!needsUpdate) {
     if (is_gift_transit) {
       Serial.println("Transit Mode Active: Suppressing network ping to protect battery in the box.");
     } else {
-      // If charging (state 2), check every 1 cycle (5 mins).
-      // If on battery, check every 3 cycles (15 mins).
-      int ping_threshold = (frame_state == 2) ? 1 : 3;
+      int ping_threshold = (frame_state == 2 || frame_state == 3) ? 1 : 3;
       network_ping_counter++;
 
       if (network_ping_counter >= ping_threshold) {
-        network_ping_counter = 0;  // Reset the counter
-
+        network_ping_counter = 0;
         Serial.print("Network heartbeat threshold reached. Pinging server...");
 
         WiFi.mode(WIFI_STA);
@@ -269,10 +289,8 @@ void setup() {
       }
     }
   }
-  // ==========================================
 
   if (!needsUpdate) {
-    // We are done. Go back to sleep immediately. Total awake time: < 0.1 seconds.
     uint64_t sleep_time_sec = is_gift_transit ? 15ULL : 300ULL;
     Serial.printf("Heartbeat complete. No update needed. Sleeping %llu seconds...\n", sleep_time_sec);
     esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
@@ -282,30 +300,9 @@ void setup() {
   // --- 3. FULL SYSTEM WAKEUP (State Change or Midnight) ---
   Serial.println("System Wake Triggered! Booting E-Paper and WiFi...");
 
-  Serial.printf("\n--- WAKE DIAGNOSTICS ---\n");
-  Serial.printf("State Changed: %s\n", stateChanged ? "YES" : "NO");
-  Serial.printf("Daily Time Hit: %s\n", timeForDailyUpdate ? "YES" : "NO");
-  Serial.printf("First Boot: %s\n", isFirstBoot ? "YES" : "NO");
-  Serial.printf("Retry Trigger: %s\n", isRetry ? "YES" : "NO");
-  Serial.printf("REQUESTING PHP STATE: %d\n", frame_state);
-  Serial.printf("------------------------\n\n");
-
   epaper.begin();
   epaper.setRotation(0);
   bool imageSuccess = false;
-
-  // ==========================================
-  // MANUAL WI-FI WIPE (Gift Prep)
-  // Hold the D0 (usually BOOT) button while waking up to clear memory
-  // ==========================================
-  // pinMode(D0, INPUT_PULLUP);
-  // if (digitalRead(D0) == LOW) {
-  //   Serial.println("\n[!] WIPE COMMAND DETECTED: Erasing saved Wi-Fi credentials...");
-  //   WiFiManager wm;
-  //   wm.resetSettings();
-  //   is_gift_transit = true;  // Enable fast-pulse transit mode
-  //   delay(1000);             // Give it a second to clear flash memory
-  // }
 
   Serial.print("Attempting silent connection to stored network...");
   WiFi.mode(WIFI_STA);
@@ -318,38 +315,47 @@ void setup() {
     timeoutCounter++;
   }
 
-  // ---> THIS IS THE LINE THAT GOT DELETED! <---
   if (WiFi.status() != WL_CONNECTED) {
-
-    if (frame_state == 2 || frame_state == 3) {
+    if (frame_state == 2 || frame_state == 3 || DEV_MODE) {
       Serial.println("\nNo stored network found. Launching safe portal...");
       WiFiManager wm;
       wm.setConfigPortalTimeout(180);
 
-      // 1. Build the HTML dropdown menu for the portal
+      // GLOBAL TIMEZONE LIST (Hides default textbox, injects custom dropdown)
       const char* custom_html =
-        "<br/><label for='tz'><b>Time Zone</b></label><br/>"
+        "type='hidden'> <label for='tz'><b>Time Zone</b></label><br/>"
         "<select name='tz' id='tz' style='width:100%; padding:5px;'>"
-        "<option value='EST5EDT,M3.2.0,M11.1.0'>Eastern Time</option>"
-        "<option value='CST6CDT,M3.2.0,M11.1.0'>Central Time</option>"
-        "<option value='MST7MDT,M3.2.0,M11.1.0'>Mountain Time</option>"
-        "<option value='PST8PDT,M3.2.0,M11.1.0'>Pacific Time</option>"
-        "</select><br/>";
+        "<option value='UTC0'>UTC / GMT</option>"
+        "<option value='WAT-1'>Africa - West Africa Time</option>"
+        "<option value='SAST-2'>Africa - South Africa Standard</option>"
+        "<option value='EAT-3'>Africa - East Africa Time</option>"
+        "<option value='IST-5:30'>Asia - India Standard</option>"
+        "<option value='WIB-7'>Asia - Western Indonesia</option>"
+        "<option value='CST-8'>Asia - China Standard / Beijing</option>"
+        "<option value='JST-9'>Asia - Japan Standard</option>"
+        "<option value='AEST-10AEDT,M10.1.0,M4.1.0/3'>Australia - Sydney</option>"
+        "<option value='CET-1CEST,M3.5.0,M10.5.0/3'>Europe - Central</option>"
+        "<option value='GMT0BST,M3.5.0/1,M10.5.0'>Europe - London</option>"
+        "<option value='BRT3BRST,M11.1.0/0,M2.3.0/0'>South America - Brasilia</option>"
+        "<option value='ART3'>South America - Argentina</option>"
+        "<option value='EST5EDT,M3.2.0,M11.1.0'>US & Canada - Eastern</option>"
+        "<option value='CST6CDT,M3.2.0,M11.1.0'>US & Canada - Central</option>"
+        "<option value='MST7MDT,M3.2.0,M11.1.0'>US & Canada - Mountain</option>"
+        "<option value='PST8PDT,M3.2.0,M11.1.0'>US & Canada - Pacific</option>"
+        "</select><br";  // Deliberately unclosed bracket for WiFiManager to complete
 
-      // 2. Inject it into WiFiManager
-      WiFiManagerParameter custom_tz("tz", custom_html, "", 50, " \n");
+      WiFiManagerParameter custom_tz("tz", "Time Zone", "", 50, custom_html);
       wm.addParameter(&custom_tz);
 
       if (!wm.autoConnect("Frame Setup")) {
         Serial.println("Failed to connect or hit timeout.");
       } else {
         Serial.println("Successfully connected via portal!");
-        is_gift_transit = false;  // Turn off transit mode
+        is_gift_transit = false;
 
-        // 3. Catch the dropdown selection and save it permanently to flash memory!
         String selected_tz = custom_tz.getValue();
         if (selected_tz.length() > 5) {
-          preferences.begin("frame", false);  // Open in read/write mode
+          preferences.begin("frame", false);
           preferences.putString("tz", selected_tz);
           preferences.end();
           current_timezone = selected_tz;
@@ -360,18 +366,15 @@ void setup() {
       Serial.println("\nNo stored network found, but running on battery.");
       Serial.println("Transit Mode Active: Skipping portal to save power. Device must be plugged in to setup.");
     }
-
-  }  // <--- This brace now properly closes the missing IF statement
-  else {
+  } else {
     Serial.println("\nConnected silently!");
-    is_gift_transit = false;  // Turn off transit mode if connected normally
+    is_gift_transit = false;
   }
 
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("Syncing clock via NTP...");
     configTzTime(current_timezone.c_str(), "pool.ntp.org", "time.nist.gov");
 
-    // Wait up to 7.5 seconds for NTP to lock (Epoch time > 1.6 billion = year 2020+)
     time_t currentTime = time(NULL);
     int ntpTimeout = 0;
     while (currentTime < 1600000000 && ntpTimeout < 15) {
@@ -382,11 +385,6 @@ void setup() {
     }
     Serial.println();
 
-    if (currentTime < 1600000000) {
-      Serial.println("WARNING: NTP sync failed! Midnight calculation will be wrong.");
-    }
-
-    // Calculate tomorrow's midnight update and safely cast it to 32-bit for RTC memory
     long secondsToMidnight = getSecondsUntilNextWake(0, 5);
     next_midnight_epoch = (uint32_t)(currentTime + secondsToMidnight);
 
@@ -407,7 +405,6 @@ void setup() {
     }
 
     Serial.println("Tasks complete. Heartbeat resuming...");
-    // Force the USB buffer to empty before killing power
     Serial.flush();
     delay(500);
 
@@ -417,6 +414,7 @@ void setup() {
     esp_deep_sleep_start();
   }
 }
+
 void loop() {}
 
 // Accept voltage and state as parameters
