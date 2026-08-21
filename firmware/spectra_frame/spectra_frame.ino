@@ -298,14 +298,14 @@ void setup() {
   // MANUAL WI-FI WIPE (Gift Prep)
   // Hold the D0 (usually BOOT) button while waking up to clear memory
   // ==========================================
-  pinMode(D0, INPUT_PULLUP);
-  if (digitalRead(D0) == LOW) {
-    Serial.println("\n[!] WIPE COMMAND DETECTED: Erasing saved Wi-Fi credentials...");
-    WiFiManager wm;
-    wm.resetSettings();
-    is_gift_transit = true;  // Enable fast-pulse transit mode
-    delay(1000);             // Give it a second to clear flash memory
-  }
+  // pinMode(D0, INPUT_PULLUP);
+  // if (digitalRead(D0) == LOW) {
+  //   Serial.println("\n[!] WIPE COMMAND DETECTED: Erasing saved Wi-Fi credentials...");
+  //   WiFiManager wm;
+  //   wm.resetSettings();
+  //   is_gift_transit = true;  // Enable fast-pulse transit mode
+  //   delay(1000);             // Give it a second to clear flash memory
+  // }
 
   Serial.print("Attempting silent connection to stored network...");
   WiFi.mode(WIFI_STA);
