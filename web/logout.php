@@ -1,5 +1,17 @@
 <?php
-// Start the session so we know which one to destroy
+// 1. Point to the correct directory BEFORE starting the session
+ini_set('session.save_path', __DIR__ . '/sessions');
+
+// 2. Harden the session cookie (Secure, HttpOnly, SameSite)
+session_set_cookie_params([
+    'lifetime' => 2592000,
+    'path' => '/',
+    'secure' => true, // Only send over HTTPS (Cloudflare)
+    'httponly' => true, // Hide from JavaScript
+    'samesite' => 'Strict' // Prevent CSRF attacks
+]);
+
+// 3. Start the session so we know which one to destroy
 session_start();
 
 //Unset all session variables

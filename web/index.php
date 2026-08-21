@@ -43,8 +43,15 @@ ini_set('session.save_path', $SESSION_DIR);
 // 2. Keep files alive for 30 days (2592000 seconds)
 ini_set('session.gc_maxlifetime', 2592000);
 
-// 3. Keep the browser cookie alive for 30 days
-session_set_cookie_params(2592000);
+// 3. Harden the session cookie (Secure, HttpOnly, SameSite)
+session_set_cookie_params([
+    'lifetime' => 2592000,
+    'path' => '/',
+    'secure' => true, // Only send over HTTPS (Cloudflare)
+    'httponly' => true, // Hide from JavaScript
+    'samesite' => 'Strict' // Prevent CSRF attacks
+]);
+
 session_start();
 
 if (isset($_POST['logout'])) {
@@ -225,10 +232,20 @@ if (isset($_FILES['photo'])) {
         $mime_type = finfo_file($finfo, $tmp_name);
         finfo_close($finfo);
 
-        $is_heic_file = ($mime_type === 'image/heic' || $mime_type === 'image/heif' || $mime_type === 'application/octet-stream' || stripos($original_name, '.heic') !== false || stripos($original_name, '.heif') !== false);
+        // SECURITY: Read the first 12 bytes of the file to check its true signature
+        $header = file_get_contents($tmp_name, false, null, 0, 12);
+        $is_heic_file = false;
+
+        // Real HEIC/Apple files always have 'ftyp' at byte 4, followed by a brand like 'heic' or 'mif1'
+        if (strlen($header) >= 12 && substr($header, 4, 4) === 'ftyp') {
+            $brand = substr($header, 8, 4);
+            if (in_array($brand, ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1'])) {
+                $is_heic_file = true;
+            }
+        }
 
         if (!in_array($mime_type, ['image/jpeg', 'image/png', 'image/webp']) && !$is_heic_file) {
-            $error_messages[] = "❌ '$original_name' is an invalid type ($mime_type).";
+            $error_messages[] = "❌ '$original_name' is an invalid or corrupted file type.";
             continue;
         }
 
