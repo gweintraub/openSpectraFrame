@@ -101,7 +101,7 @@ $seconds_remaining = $is_locked_out
 if ($is_locked_out && $seconds_remaining > 0) {
     http_response_code(429);
     $wait_minutes = ceil($seconds_remaining / 60);
-    echo '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{background:#1c1c1e;color:#fff;font-family:sans-serif;}</style></head><body>';
+    echo '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><link rel="icon" type="image/png" href="/img/apple-touch-icon.png?v=<?php echo time(); ?>"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png?v=<?php echo time(); ?>"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Frame"><style>body{background:#1c1c1e;color:#fff;font-family:sans-serif;}</style></head><body>';
     echo '<div style="max-width:400px;margin:100px auto;text-align:center;padding:20px;border:1px solid #ff453a;background:#2c1414;border-radius:12px;">';
     echo '<h2 style="color:#ff453a;margin-top:0;">🔒 Too Many Attempts</h2>';
     echo '<p style="color:#eaeaea;font-size:14px;line-height:1.5;">Try again in about ' . $wait_minutes . ' minute(s).</p>';
@@ -132,7 +132,7 @@ if (isset($_POST['password'])) {
 // HALT 1: Config Error Screen
 // ==========================================
 if (isset($config_error) && $config_error) {
-    echo '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>body{background:#1c1c1e;color:#fff;font-family:sans-serif;}</style></head><body>';
+    echo '<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">    <link rel="icon" type="image/png" href="/img/apple-touch-icon.png?v=<?php echo time(); ?>"><link rel="apple-touch-icon" href="/img/apple-touch-icon.png?v=<?php echo time(); ?>"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Frame"><style>body{background:#1c1c1e;color:#fff;font-family:sans-serif;}</style></head><body>';
     echo '<div style="max-width:400px;margin:100px auto;text-align:center;padding:20px;border:1px solid #ff453a;background:#2c1414;border-radius:12px;">';
     echo '<h2 style="color:#ff453a;margin-top:0;">⚠️ Configuration Error</h2>';
     echo '<p style="color:#eaeaea;font-size:14px;line-height:1.5;">The <strong>PORTAL_PASSWORD</strong> environment variable is missing.</p>';
@@ -150,6 +150,11 @@ if (!isset($_SESSION['authenticated'])) {
     // 2. Stitch the $display_name variable into the HTML string using ' . $variable . '
     echo '<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/img/apple-touch-icon.png?v=<?php echo time(); ?>">
+    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png?v=<?php echo time(); ?>">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Frame">
 <title>' . $display_name . '</title>
 <style>
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; color: #f5f5f7; } .login-card { background: #1c1c1e; padding: 40px 30px; border-radius: 20px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); width: 100%; max-width: 340px; text-align: center; border: 1px solid #2c2c2e; } h2 { margin: 0 0 8px 0; font-size: 24px; color: #fff; font-weight: 600;} p.sub { color: #8e8e93; font-size: 14px; margin-bottom: 24px;} input[type="password"] { width: 100%; padding: 16px; margin-bottom: 16px; background: #2c2c2e; border: 1px solid #3a3a3c; border-radius: 12px; font-size: 16px; color: #fff; box-sizing: border-box; outline: none; transition: border 0.2s;} input[type="password"]:focus { border-color: #0a84ff; } button { width: 100%; background: #0a84ff; color: white; border: none; padding: 16px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s; } button:hover { background: #0071e3; }
