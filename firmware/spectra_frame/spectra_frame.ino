@@ -25,6 +25,7 @@ RTC_DATA_ATTR float last_voltage = 0.0;
 RTC_DATA_ATTR uint32_t next_midnight_epoch = 0;  // Tracks the next daily update target
 RTC_DATA_ATTR float peak_charge_voltage = 0.0;
 RTC_DATA_ATTR int network_ping_counter = 0;
+RTC_DATA_ATTR bool is_gift_transit = false;  // Tracks if are in fast-pulse gift mode
 
 // ----------------------------------------------------
 // ORIGINAL, FLAWLESS COLOR RENDERING METHOD
@@ -202,65 +203,70 @@ void setup() {
 
   bool needsUpdate = stateChanged || timeForDailyUpdate || isFirstBoot || isRetry;
 
-  // ==========================================
-  // NEW: Decoupled Network Ping for Manual Updates
-  // ==========================================
-  if (!needsUpdate) {
-    // If charging (state 2), check every 1 cycle (5 mins).
-    // If on battery, check every 3 cycles (15 mins).
-    int ping_threshold = (frame_state == 2) ? 1 : 3;
-    network_ping_counter++;
+// ==========================================
+// Decoupled Network Ping for Manual Updates
+// ==========================================
+if (!needsUpdate) {
+if (is_gift_transit) {
+Serial.println("Transit Mode Active: Suppressing network ping to protect battery in the box.");
+} else {
+// If charging (state 2), check every 1 cycle (5 mins).
+// If on battery, check every 3 cycles (15 mins).
+int ping_threshold = (frame_state == 2) ? 1 : 3;
+network_ping_counter++;
 
-    if (network_ping_counter >= ping_threshold) {
-      network_ping_counter = 0;  // Reset the counter
+if (network_ping_counter >= ping_threshold) {
+network_ping_counter = 0; // Reset the counter
 
-      Serial.print("Network heartbeat threshold reached. Pinging server...");
+Serial.print("Network heartbeat threshold reached. Pinging server...");
 
-      WiFi.mode(WIFI_STA);
-      WiFi.begin();
+WiFi.mode(WIFI_STA);
+WiFi.begin();
 
-      int timeoutCounter = 0;
-      while (WiFi.status() != WL_CONNECTED && timeoutCounter < 10) {
-        delay(500);
-        Serial.print(".");
-        timeoutCounter++;
-      }
+int timeoutCounter = 0;
+while (WiFi.status() != WL_CONNECTED && timeoutCounter < 10) {
+delay(500);
+Serial.print(".");
+timeoutCounter++;
+}
 
-      if (WiFi.status() == WL_CONNECTED) {
-        WiFiClientSecure checkClient;
-        checkClient.setInsecure();
-        HTTPClient checkHttp;
+if (WiFi.status() == WL_CONNECTED) {
+WiFiClientSecure checkClient;
+checkClient.setInsecure();
+HTTPClient checkHttp;
 
-        String checkUrl = String(image_url);
-        checkUrl.replace("gallery.php", "check_update.php");  // Or replace whatever your image endpoint is called
+String checkUrl = String(image_url);
+checkUrl.replace("gallery.php", "check_update.php");
 
-        checkHttp.begin(checkClient, checkUrl);
-        checkHttp.addHeader("X-API-Key", api_key);
+checkHttp.begin(checkClient, checkUrl);
+checkHttp.addHeader("X-API-Key", api_key);
 
-        if (checkHttp.GET() == HTTP_CODE_OK && checkHttp.getString() == "1") {
-          Serial.println("\nManual update requested by portal!");
-          needsUpdate = true;
-        } else {
-          Serial.println("\nNo updates pending.");
-          WiFi.disconnect(true);
-          WiFi.mode(WIFI_OFF);
-        }
-        checkHttp.end();
-      } else {
-        Serial.println("\nWiFi timeout. Sleeping.");
-        WiFi.disconnect(true);
-        WiFi.mode(WIFI_OFF);
-      }
-    } else {
-      Serial.printf("Silent hardware heartbeat only. Skipping network ping (%d/%d).\n", network_ping_counter, ping_threshold);
-    }
-  }
-  // ==========================================
+if (checkHttp.GET() == HTTP_CODE_OK && checkHttp.getString() == "1") {
+Serial.println("\nManual update requested by portal!");
+needsUpdate = true;
+} else {
+Serial.println("\nNo updates pending.");
+WiFi.disconnect(true);
+WiFi.mode(WIFI_OFF);
+}
+checkHttp.end();
+} else {
+Serial.println("\nWiFi timeout. Sleeping.");
+WiFi.disconnect(true);
+WiFi.mode(WIFI_OFF);
+}
+} else {
+Serial.printf("Silent hardware heartbeat only. Skipping network ping (%d/%d).\n", network_ping_counter, ping_threshold);
+}
+}
+}
+// ==========================================
 
   if (!needsUpdate) {
     // We are done. Go back to sleep immediately. Total awake time: < 0.1 seconds.
-    Serial.println("Heartbeat complete. No update needed. Sleeping 5 mins...");
-    esp_sleep_enable_timer_wakeup(300ULL * 1000000ULL);
+    uint64_t sleep_time_sec = is_gift_transit ? 15ULL : 300ULL;
+    Serial.printf("Heartbeat complete. No update needed. Sleeping %llu seconds...\n", sleep_time_sec);
+    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
     esp_deep_sleep_start();
   }
 
@@ -277,8 +283,20 @@ void setup() {
 
   epaper.begin();
   epaper.setRotation(0);
-
   bool imageSuccess = false;
+
+  // ==========================================
+  // MANUAL WI-FI WIPE (Gift Prep)
+  // Hold the D0 (usually BOOT) button while waking up to clear memory
+  // ==========================================
+  pinMode(D0, INPUT_PULLUP);
+  if (digitalRead(D0) == LOW) {
+    Serial.println("\n[!] WIPE COMMAND DETECTED: Erasing saved Wi-Fi credentials...");
+    WiFiManager wm;
+    wm.resetSettings();
+    is_gift_transit = true;  // Enable fast-pulse transit mode
+    delay(1000);             // Give it a second to clear flash memory
+  }
 
   Serial.print("Attempting silent connection to stored network...");
   WiFi.mode(WIFI_STA);
@@ -292,17 +310,26 @@ void setup() {
   }
 
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("\nNo stored network found. Launching safe portal...");
-    WiFiManager wm;
-    wm.setConfigPortalTimeout(60);
-    pinMode(D0, INPUT_PULLUP);
-    if (digitalRead(D0) == LOW) { wm.resetSettings(); }
+    // NEW: Transit Mode Protection
+    // Only launch the power-hungry Setup Portal if the frame is plugged into the wall
+    if (frame_state == 2 || frame_state == 3) {
+      Serial.println("\nNo stored network found. Launching safe portal...");
+      WiFiManager wm;
+      wm.setConfigPortalTimeout(180);  // 3 minutes to type passwords
 
-    if (!wm.autoConnect("Frame Setup")) {
-      Serial.println("Failed to connect or hit timeout.");
+      if (!wm.autoConnect("Frame Setup")) {
+        Serial.println("Failed to connect or hit timeout.");
+      } else {
+        // Successfully connected via portal! Turn off transit mode.
+        is_gift_transit = false;
+      }
+    } else {
+      Serial.println("\nNo stored network found, but running on battery.");
+      Serial.println("Transit Mode Active: Skipping portal to save power. Device must be plugged in to setup.");
     }
   } else {
     Serial.println("\nConnected silently!");
+    is_gift_transit = false;  // Turn off transit mode if connected normally
   }
 
   if (WiFi.status() == WL_CONNECTED) {
@@ -344,13 +371,14 @@ void setup() {
       retryCount = 0;
     }
 
-    Serial.println("Tasks complete. Heartbeat resuming. Sleeping 5 mins...");
+    Serial.println("Tasks complete. Heartbeat resuming...");
     // Force the USB buffer to empty before killing power
     Serial.flush();
     delay(500);
 
-    // Heartbeat ALWAYS sleeps for 5 minutes (300 seconds)
-    esp_sleep_enable_timer_wakeup(300ULL * 1000000ULL);
+    uint64_t sleep_time_sec = is_gift_transit ? 15ULL : 300ULL;
+    Serial.printf("Sleeping %llu seconds...\n", sleep_time_sec);
+    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
     esp_deep_sleep_start();
   }
 }
