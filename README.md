@@ -72,6 +72,16 @@ This diagram illustrates how the hardware, web portal, and AI processing pipelin
 | **Image Engine** | ImageMagick | Composites the AI masks, crops to the exact E-Ink aspect ratio, and converts the final output to a raw RGB565 palette. |
 | **Delivery API** | PHP GD | `gallery.php` intercepts the frame's download request, logs hardware telemetry, and dynamically draws text overlays in RAM before sending. |
 
+## Hardware Setup & Flashing
+This project uses an ESP32 connected to an E-Ink display. Because the high-resolution images are larger than the ESP32's internal memory, **PSRAM is strictly required.**
+
+**Arduino IDE Settings:**
+Before clicking Upload, ensure your board settings are correct:
+* **Board:** XIAO ESP32-S3
+* **PSRAM:** Enabled (or OPI PSRAM)
+* **Upload Speed:** 9600 (or leave as default)
+> **Note:** If PSRAM is disabled in the tools menu, the board will throw a 'FATAL ERROR: ESP32 ran out of PSRAM!' crash over the Serial monitor when it attempts to download a photo.
+
 ## Manual Update Triggers (The "Dropbox" System)
 
 Because the ESP32 spends 99% of its life in deep sleep to conserve battery, the web server cannot "push" an update to it. Instead, we use a literal dropbox flag system:

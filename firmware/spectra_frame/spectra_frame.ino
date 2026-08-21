@@ -260,7 +260,7 @@ void setup() {
   if (!needsUpdate) {
     // We are done. Go back to sleep immediately. Total awake time: < 0.1 seconds.
     Serial.println("Heartbeat complete. No update needed. Sleeping 5 mins...");
-    esp_sleep_enable_timer_wakeup(15ULL * 1000000ULL);
+    esp_sleep_enable_timer_wakeup(300ULL * 1000000ULL);
     esp_deep_sleep_start();
   }
 
@@ -350,7 +350,7 @@ void setup() {
     delay(500);
 
     // Heartbeat ALWAYS sleeps for 5 minutes (300 seconds)
-    esp_sleep_enable_timer_wakeup(15ULL * 1000000ULL);
+    esp_sleep_enable_timer_wakeup(300ULL * 1000000ULL);
     esp_deep_sleep_start();
   }
 }
@@ -359,48 +359,45 @@ void loop() {}
 // Accept voltage and state as parameters
 bool fetchAndDisplayImage(float batteryVoltage, int state) {
   if (WiFi.status() == WL_CONNECTED) {
-    WiFiClientSecure* client = new WiFiClientSecure;
-    client->setInsecure();
-    HTTPClient* http = new HTTPClient;
 
-    // 1. Build the clean url (no key!)
+    // 1. STACK ALLOCATION: Automatically cleans up when function exits
+    WiFiClientSecure client;
+    client.setInsecure();
+    HTTPClient http;
+
     String fullUrl = String(image_url) + "?v=" + String(batteryVoltage, 2) + "&state=" + String(state);
 
     Serial.print("Connecting to: ");
     Serial.println(fullUrl);
 
-    http->begin(*client, fullUrl.c_str());
+    http.begin(client, fullUrl.c_str());
+    http.addHeader("X-API-Key", api_key);
 
-    // 2. NEW Inject the secret key directly into HTTP headers
-    http->addHeader("X-API-Key", api_key);
-    // 3. Execute the request
-    int httpCode = http->GET();
+    int httpCode = http.GET();
     bool success = false;
 
     if (httpCode == HTTP_CODE_OK) {
-      int totalBytes = http->getSize();
+      int totalBytes = http.getSize();
       Serial.printf("\n--- NEW DOWNLOAD STARTING ---\n");
       Serial.printf("Expected file size: %d bytes\n", totalBytes);
 
-      // --- NEW SAFETY CHECK ---
       if (totalBytes <= 0) {
-        Serial.println("FATAL ERROR: Server did not send a valid Content-Length. Aborting download.");
-        http->end();
-        delete http;
-        delete client;
-        return false;
+        Serial.println("FATAL ERROR: Server did not send a valid Content-Length.");
+        Serial.println(http.getString());  // Print the hidden PHP error
+        http.end();
+        return false;  // No need to manually delete objects here anymore!
       }
-      // ------------------------
 
       uint8_t* imgBuffer = (uint8_t*)ps_malloc(totalBytes);
 
       if (imgBuffer != NULL) {
-        WiFiClient* stream = http->getStreamPtr();
+        WiFiClient* stream = http.getStreamPtr();
         int bytesRead = 0;
 
+        // 2. SAFETY TIMEOUT: Protects against the infinite loop
         unsigned long timeoutStart = millis();
 
-        while (http->connected() && bytesRead < totalBytes) {
+        while (http.connected() && bytesRead < totalBytes) {
           size_t available = stream->available();
           if (available) {
             if (bytesRead + available > totalBytes) { available = totalBytes - bytesRead; }
@@ -408,7 +405,6 @@ bool fetchAndDisplayImage(float batteryVoltage, int state) {
             bytesRead += c;
             timeoutStart = millis();  // Reset timeout clock because we got good data
           } else {
-            // SAFETY NET: If 10 full seconds pass without a single byte arriving, abort!
             if (millis() - timeoutStart > 10000) {
               Serial.println("WARNING: Network stalled. Aborting download to prevent battery drain.");
               break;
@@ -417,27 +413,32 @@ bool fetchAndDisplayImage(float batteryVoltage, int state) {
           delay(1);
         }
 
-        Serial.println("Attempting to open PNG in RAM...");
-        int rc = png.openRAM(imgBuffer, bytesRead, pngDraw);
+        if (bytesRead == totalBytes) {
+          Serial.println("Attempting to open PNG in RAM...");
+          int rc = png.openRAM(imgBuffer, bytesRead, pngDraw);
 
-        if (rc == PNG_SUCCESS) {
-          Serial.println("Valid PNG verified. Clearing screen to white...");
-          epaper.fillScreen(TFT_WHITE);
+          if (rc == PNG_SUCCESS) {
+            Serial.println("Valid PNG verified. Clearing screen to white...");
+            epaper.fillScreen(TFT_WHITE);
 
-          Serial.println("Starting full decode...");
-          int decodeResult = png.decode(NULL, 0);
-          Serial.printf("Decode finished with code: %d\n", decodeResult);
-          png.close();
+            Serial.println("Starting full decode...");
+            int decodeResult = png.decode(NULL, 0);
+            Serial.printf("Decode finished with code: %d\n", decodeResult);
+            png.close();
 
-          Serial.println("Pushing voltage update to E-Ink hardware...");
-          epaper.update();
-          Serial.println("Image refresh complete!\n");
+            Serial.println("Pushing voltage update to E-Ink hardware...");
+            epaper.update();
+            Serial.println("Image refresh complete!\n");
 
-          success = true;
+            success = true;
+          } else {
+            Serial.printf("FATAL ERROR: openRAM failed! Code: %d. Leaving old image on screen.\n", rc);
+          }
         } else {
-          Serial.printf("FATAL ERROR: openRAM failed! Code: %d. Leaving old image on screen.\n", rc);
+          Serial.println("FATAL ERROR: Download incomplete. Aborting display update.");
         }
-        free(imgBuffer);
+
+        free(imgBuffer);  // We still must manually free PSRAM allocations
       } else {
         Serial.println("FATAL ERROR: ESP32 ran out of PSRAM!");
       }
@@ -445,12 +446,10 @@ bool fetchAndDisplayImage(float batteryVoltage, int state) {
       Serial.printf("HTTP Request Failed. Code: %d\n", httpCode);
     }
 
-    http->end();
-    delete http;
-    delete client;
-
+    http.end();
     return success;
   }
+
   Serial.println("WiFi not connected. Cannot fetch image.");
   return false;
 }
