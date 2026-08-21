@@ -121,7 +121,7 @@ void setup() {
 
   // --- RETRIEVE SAVED TIMEZONE ---
   Preferences preferences;
-  preferences.begin("frame", true);                                          // Open in read-only mode
+  preferences.begin("frame", false);                                          // Open in read-only mode
   current_timezone = preferences.getString("tz", "EST5EDT,M3.2.0,M11.1.0");  // Default to EST if missing
   preferences.end();
 
