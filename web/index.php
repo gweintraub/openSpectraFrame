@@ -484,19 +484,17 @@ if (file_exists($battery_file)) {
         $pct = (int)round($pct);
         $color = $pct <= 20 ? '#ff453a' : '#32d74b';
 
-        // Get the file modification time
-        $file_time = filemtime($battery_file);
-        $hover_text = 'Last updated: ' . date('M j, g:i A', $file_time);
+        // Pass the raw epoch timestamp (multiplied by 1000 for JavaScript)
+        $file_time_ms = filemtime($battery_file) * 1000;
 
-        // Geometrically dynamic fill logic: Interior width scales from 0 to 12 based on %
         $fill_width = max(0, round(($pct / 100) * 12));
         $fill_rect = $fill_width > 0 ? '<rect x="4" y="9" width="' . $fill_width . '" height="6" rx="1" fill="currentColor"></rect>' : '';
 
-        // Battery icon dynamically sized to exactly match 18px util buttons
         $battery_icon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2" ry="2"></rect><line x1="22" y1="11" x2="22" y2="13"></line>' . $fill_rect . '</svg>';
 
+        // Added an ID and a data-timestamp attribute
         $battery_html = '
-<div class="battery-icon-group" style="color: ' . $color . ';" title="' . $hover_text . '">
+<div id="battery-status" class="battery-icon-group" style="color: ' . $color . ';" data-timestamp="' . $file_time_ms . '" title="Loading time...">
 ' . $battery_icon . ' <span>' . $pct . '%</span>
 </div>';
     }
@@ -1220,6 +1218,23 @@ if (file_exists($battery_file)) {
         const galleryImages = <?php echo json_encode($gallery_urls); ?>;
         let currentGalleryIndex = 0;
 
+        // Format the battery timestamp into the browser's local timezone
+        const batteryEl = document.getElementById('battery-status');
+        if (batteryEl) {
+            const timestamp = parseInt(batteryEl.getAttribute('data-timestamp'), 10);
+            const date = new Date(timestamp);
+
+            // Formats to: "Oct 24, 4:26 PM" based on the exact timezone of the device viewing it
+            const formattedTime = date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+
+            batteryEl.setAttribute('title', 'Last updated: ' + formattedTime);
+        }
+
         function submitUpload() {
             const fileInput = document.querySelector('input[type="file"]');
             if (fileInput.files.length === 0) return;
@@ -1563,14 +1578,14 @@ if (file_exists($battery_file)) {
                         if (i === activeIndex) {
                             if (!badge) {
                                 const badgeHTML = `
-<div class="current-badge" title="Currently on Frame">
-<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-<circle cx="8.5" cy="8.5" r="1.5"></circle>
-<polyline points="21 15 16 10 5 21"></polyline>
-</svg>
-</div>
-`;
+                                <div class="current-badge" title="Currently on Frame">
+                                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                                </div>
+                                `;
                                 card.insertAdjacentHTML('beforeend', badgeHTML);
                             }
                         } else {
