@@ -1298,8 +1298,8 @@ if (file_exists($battery_file)) {
                 if (xhr.responseText.trim() === "OK") {
                     // Success! Turn button green with checkmark
                     btnElement.style.background = '#32d74b';
-                    btnElement.style.color = '#000';
-                    btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                    btnElement.style.color = '#fff';
+                    btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
                     // Reload the page after 1.5 seconds so the grid updates with the new photos
                     setTimeout(() => {
@@ -1487,7 +1487,7 @@ if (file_exists($battery_file)) {
                 .then(([text]) => {
                     if (text.trim() === "OK") {
                         btnElement.style.background = '#32d74b';
-                        btnElement.style.color = '#000';
+                        btnElement.style.color = '#fff';
                         btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
                         // Force the UI to update the green badge instantly!
@@ -1559,8 +1559,8 @@ if (file_exists($battery_file)) {
                 .then(([text]) => {
                     if (text.trim() === "OK") {
                         btn.style.background = '#32d74b';
-                        btn.style.color = '#000';
-                        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Sent!';
+                        btn.style.color = '#fff';
+                        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Sent!';
 
                         // Force the UI to update the green badge instantly!
                         pollActiveImage();
