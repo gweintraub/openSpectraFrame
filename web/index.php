@@ -1045,11 +1045,13 @@ if (file_exists($battery_file)) {
             font-weight: 600;
             cursor: pointer;
             border: none;
-            transition: opacity 0.2s;
+            /* Updated to smoothly transition colors, filters, and scaling */
+            transition: background 0.2s, filter 0.2s, transform 0.2s;
         }
 
+        /* Make them gently scale down when clicked, like the other UI buttons */
         .modal-buttons button:active {
-            opacity: 0.7;
+            transform: scale(0.96);
         }
 
         .btn-cancel {
@@ -1057,9 +1059,19 @@ if (file_exists($battery_file)) {
             color: #0a84ff;
         }
 
+        /* Lighten the cancel button on hover */
+        .btn-cancel:hover {
+            background: #3a3a3c;
+        }
+
         .btn-danger {
             background: #ff453a;
             color: white;
+        }
+
+        /* Brighten the red delete button on hover */
+        .btn-danger:hover {
+            filter: brightness(1.15);
         }
     </style>
 </head>
