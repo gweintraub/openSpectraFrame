@@ -527,6 +527,10 @@ if (file_exists($battery_file)) {
             -webkit-font-smoothing: antialiased;
         }
 
+        body.no-scroll {
+            overflow: hidden;
+        }
+
         .container {
             max-width: 600px;
             margin: 0 auto;
@@ -606,11 +610,9 @@ if (file_exists($battery_file)) {
             white-space: nowrap;
         }
 
-        /* Corner placements make it impossible to collide with the logo */
         .nav-left {
             position: absolute;
             top: 4px;
-            /* Optically aligns with the logo top edge */
             left: 0;
         }
 
@@ -639,17 +641,18 @@ if (file_exists($battery_file)) {
             cursor: pointer;
             display: flex;
             transition: color 0.2s ease, transform 0.2s ease;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .icon-btn:hover {
-            color: #fff;
+        @media (hover: hover) {
+            .icon-btn:hover {
+                color: #fff;
+            }
         }
 
         .icon-btn:active {
             color: #0a84ff;
-            /* Turns blue on click */
-            transform: scale(0.9);
-            /* Slight shrink effect */
+            transform: scale(0.85);
         }
 
         .icon-btn svg {
@@ -668,8 +671,6 @@ if (file_exists($battery_file)) {
             .nav-title {
                 font-size: 26px;
             }
-
-            /* Scaled slightly to avoid text-wrapping */
 
             .nav-left {
                 top: 4px;
@@ -1104,7 +1105,7 @@ if (file_exists($battery_file)) {
 
             <!-- Top Right: Refresh & Logout -->
             <div class="nav-right">
-                <button onclick="window.location.href = window.location.pathname + '?t=' + Date.now();" class="icon-btn" title="Refresh">
+                <button onclick="window.location.href = window.location.pathname + '?t=' + Date.now();" class="icon-btn" title="Refresh" ontouchstart="">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="23 4 23 10 17 10"></polyline>
                         <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
@@ -1112,7 +1113,7 @@ if (file_exists($battery_file)) {
                 </button>
 
                 <form method="post" action="logout.php" style="margin: 0;">
-                    <button type="submit" class="icon-btn" title="Logout">
+                    <button type="submit" class="icon-btn" title="Logout" ontouchstart="">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
                             <polyline points="16 17 21 12 16 7"></polyline>
@@ -1326,11 +1327,15 @@ if (file_exists($battery_file)) {
             const lightbox = document.getElementById('lightbox');
             lightbox.style.display = 'flex';
             lightbox.style.opacity = '0';
+
+            document.body.classList.add('no-scroll'); // Locks background scrolling
+
             setTimeout(() => lightbox.style.opacity = '1', 10);
         }
 
         function closeLightbox() {
             document.getElementById('lightbox').style.display = 'none';
+            document.body.classList.remove('no-scroll'); // Unlocks background scrolling
         }
 
         document.getElementById('lightbox').addEventListener('click', function(e) {
