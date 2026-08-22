@@ -53,12 +53,6 @@ session_set_cookie_params([
 ]);
 
 session_start();
-// ======================================
-// PREVENT BROWSER CACHING (Force fresh battery stats)
-// ======================================
-header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-header("Cache-Control: post-check=0, pre-check=0", false);
-header("Pragma: no-cache");
 
 if (isset($_POST['logout'])) {
     unset($_SESSION['authenticated']);
@@ -1254,18 +1248,18 @@ if (file_exists($battery_file)) {
 
                     // Reload the page after 1.5 seconds so the grid updates with the new photos
                     setTimeout(() => {
-                        window.location.reload();
+                        window.location.href = window.location.pathname;
                     }, 1500);
                 } else {
                     // If there were PHP upload errors (e.g. file too big), pop them up
                     alert("Upload issues:\n" + xhr.responseText);
-                    window.location.reload();
+                    window.location.href = window.location.pathname;
                 }
             });
 
             xhr.addEventListener('error', function() {
                 alert('Network error. Please try again.');
-                window.location.reload();
+                window.location.href = window.location.pathname;
             });
 
             xhr.open('POST', window.location.href, true);
@@ -1385,10 +1379,10 @@ if (file_exists($battery_file)) {
                             // 4. Silently reload the page as soon as the animation finishes.
                             // This completely prevents the "wrong photo" index desync bug!
                             setTimeout(() => {
-                                window.location.reload();
+                                window.location.href = window.location.pathname;
                             }, 400);
                         } else {
-                            window.location.reload();
+                            window.location.href = window.location.pathname;
                         }
 
                     } else {
