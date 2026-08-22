@@ -484,6 +484,10 @@ if (file_exists($battery_file)) {
         $pct = (int)round($pct);
         $color = $pct <= 20 ? '#ff453a' : '#32d74b';
 
+        // Get the file modification time
+        $file_time = filemtime($battery_file);
+        $hover_text = 'Last updated: ' . date('M j, g:i A', $file_time);
+
         // Geometrically dynamic fill logic: Interior width scales from 0 to 12 based on %
         $fill_width = max(0, round(($pct / 100) * 12));
         $fill_rect = $fill_width > 0 ? '<rect x="4" y="9" width="' . $fill_width . '" height="6" rx="1" fill="currentColor"></rect>' : '';
@@ -492,7 +496,7 @@ if (file_exists($battery_file)) {
         $battery_icon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2" ry="2"></rect><line x1="22" y1="11" x2="22" y2="13"></line>' . $fill_rect . '</svg>';
 
         $battery_html = '
-<div class="battery-icon-group" style="color: ' . $color . ';" title="Battery Status">
+<div class="battery-icon-group" style="color: ' . $color . ';" title="' . $hover_text . '">
 ' . $battery_icon . ' <span>' . $pct . '%</span>
 </div>';
     }
@@ -636,11 +640,18 @@ if (file_exists($battery_file)) {
             padding: 0;
             cursor: pointer;
             display: flex;
-            transition: color 0.2s ease;
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+
+        .icon-btn:hover {
+            color: #fff;
         }
 
         .icon-btn:active {
-            color: #fff;
+            color: #0a84ff;
+            /* Turns blue on click */
+            transform: scale(0.9);
+            /* Slight shrink effect */
         }
 
         .icon-btn svg {
