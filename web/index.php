@@ -344,8 +344,8 @@ if (isset($_FILES['photo'])) {
             continue;
         }
 
-        $extension = image_type_to_extension($img_info[2]);
-        $secure_filename = time() . '_' . uniqid('frame_', true) . $extension;
+        // Force jpeg extension
+        $secure_filename = time() . '_' . uniqid('frame_', true) . '.jpg';
         $target_path = $UPLOAD_DIR . '/' . $secure_filename;
 
         $FRAME_W = 1200;
@@ -459,7 +459,7 @@ $gallery_urls = [];
 if (is_dir($UPLOAD_DIR)) {
     $files = array_diff(scandir($UPLOAD_DIR), array('.', '..'));
     foreach ($files as $file) {
-        if (in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg'])) {
+        if (in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp'])) {
             $images[] = $file;
         }
     }
