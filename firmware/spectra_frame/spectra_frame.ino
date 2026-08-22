@@ -17,7 +17,7 @@
 EPaper epaper;
 PNG png;
 
-const bool DEV_MODE = true;
+const bool DEV_MODE = false;
 
 // --- VARIABLES THAT SURVIVE DEEP SLEEP ---
 RTC_DATA_ATTR int retryCount = 0;

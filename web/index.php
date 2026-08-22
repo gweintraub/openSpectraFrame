@@ -434,12 +434,20 @@ if (isset($_FILES['photo'])) {
     $flash_out = [];
     if ($success_count > 0) $flash_out[] = "✨ $success_count photo(s) successfully sent to Frame!";
     if (!empty($error_messages)) $flash_out = array_merge($flash_out, $error_messages);
-    if (!empty($flash_out)) $_SESSION['flash'] = implode("\n", $flash_out);
 
+    // 1. If this is a background upload, just reply with OK (or the errors) and exit.
+    // Do NOT set the session flash banner!
     if (isset($_POST['is_ajax'])) {
-        echo "OK";
+        if (!empty($error_messages)) {
+            echo implode("\n", $error_messages);
+        } else {
+            echo "OK";
+        }
         exit;
     }
+
+    // 2. Fallback for non-ajax submissions
+    if (!empty($flash_out)) $_SESSION['flash'] = implode("\n", $flash_out);
 
     header("Location: " . $_SERVER['PHP_SELF']);
     exit;
@@ -512,8 +520,8 @@ if (file_exists($battery_file)) {
     <title><?php echo defined('FRAME_NAME') ? htmlspecialchars(FRAME_NAME) : 'Smart Frame'; ?></title>
     <style>
         /* =========================================
-1. GLOBALS & LAYOUT
-========================================= */
+        1. GLOBALS & LAYOUT
+        ========================================= */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: #000;
@@ -565,8 +573,8 @@ if (file_exists($battery_file)) {
         }
 
         /* =========================================
-2. HEADER (ABSOLUTE CORNERS + CENTERED STACK)
-========================================= */
+        2. HEADER (ABSOLUTE CORNERS + CENTERED STACK)
+        ========================================= */
         .navbar {
             position: relative;
             display: flex;
@@ -686,8 +694,8 @@ if (file_exists($battery_file)) {
         }
 
         /* =========================================
-3. ACTION BAR (ADD / SHUFFLE BUTTONS)
-========================================= */
+        3. ACTION BAR (ADD / SHUFFLE BUTTONS)
+        ========================================= */
         .action-bar {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -762,8 +770,8 @@ if (file_exists($battery_file)) {
         }
 
         /* =========================================
-4. GALLERY GRID
-========================================= */
+        4. GALLERY GRID
+        ========================================= */
         .grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -816,8 +824,8 @@ if (file_exists($battery_file)) {
         }
 
         /* =========================================
-5. LIGHTBOX
-========================================= */
+        5. LIGHTBOX
+        ========================================= */
         #lightbox {
             display: none;
             position: fixed;
@@ -959,23 +967,8 @@ if (file_exists($battery_file)) {
         }
 
         /* =========================================
-6. MODALS & LOADERS
-========================================= */
-        #loader {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            z-index: 9999;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-        }
+        6. MODALS & LOADERS
+        ========================================= */
 
         .spinner {
             border: 3px solid rgba(255, 255, 255, 0.15);
@@ -995,11 +988,6 @@ if (file_exists($battery_file)) {
             100% {
                 transform: rotate(360deg);
             }
-        }
-
-        .loader-text {
-            font-size: 18px;
-            font-weight: 500;
         }
 
         .modal-overlay {
@@ -1074,11 +1062,6 @@ if (file_exists($battery_file)) {
 </head>
 
 <body>
-
-    <div id="loader">
-        <div class="spinner" style="width: 50px; height: 50px; border-width: 4px; margin-bottom: 20px;"></div>
-        <div class="loader-text">Preparing photos for the Frame...</div>
-    </div>
 
     <div class="container">
         <!-- 1. CENTERED STACKED HEADER WITH CORNER ACTIONS -->
@@ -1236,46 +1219,55 @@ if (file_exists($battery_file)) {
             const fileInput = document.querySelector('input[type="file"]');
             if (fileInput.files.length === 0) return;
 
-            const loader = document.getElementById('loader');
-            loader.innerHTML = '<style>' +
-                '@keyframes pulse-blue { 0% { background: #0a84ff; box-shadow: 0 0 0px #0a84ff; } 50% { background: #5ac8fa; box-shadow: 0 0 15px #5ac8fa; } 100% { background: #0a84ff; box-shadow: 0 0 0px #0a84ff; } } ' +
-                '.processing { animation: pulse-blue 1.5s infinite ease-in-out !important; }' +
-                '</style>' +
-                '<div style="width: 240px; background: #3a3a3c; border-radius: 8px; margin-bottom: 20px; overflow: hidden; height: 8px;">' +
-                '<div id="progress-bar" style="width: 0%; height: 100%; background: #32d74b; transition: width 0.1s linear;"></div>' +
-                '</div>' +
-                '<div class="loader-text" id="progress-text">Uploading: 0%</div>';
-            loader.style.display = 'flex';
+            const btnElement = document.querySelector('.secondary-btn');
+            const originalHTML = btnElement.innerHTML;
+
+            // Lock width to prevent jitter, turn into a spinner
+            const originalWidth = btnElement.offsetWidth;
+            btnElement.style.width = originalWidth + 'px';
+            btnElement.style.pointerEvents = 'none';
+            btnElement.innerHTML = '<div class="spinner" style="margin: 0; width: 16px; height: 16px; border-width: 2px;"></div>';
 
             const formData = new FormData(document.getElementById('uploadForm'));
             formData.append('is_ajax', '1');
 
             const xhr = new XMLHttpRequest();
+
+            // Update the button with live upload percentage
             xhr.upload.addEventListener('progress', function(e) {
                 if (e.lengthComputable) {
                     const pct = Math.round((e.loaded / e.total) * 100);
-                    const pBar = document.getElementById('progress-bar');
-                    pBar.style.width = pct + '%';
-
-                    if (pct === 100) {
-                        pBar.className = 'processing';
-                        document.getElementById('progress-text').innerText = 'Processing & resizing images...';
+                    if (pct < 100) {
+                        btnElement.innerHTML = '<div class="spinner" style="margin: 0; width: 16px; height: 16px; border-width: 2px;"></div> <span style="margin-left: 8px;">' + pct + '%</span>';
                     } else {
-                        document.getElementById('progress-text').innerText = 'Uploading: ' + pct + '%';
+                        btnElement.innerHTML = '<div class="spinner" style="margin: 0; width: 16px; height: 16px; border-width: 2px;"></div> <span style="margin-left: 8px;">Processing</span>';
                     }
                 }
             });
 
             xhr.addEventListener('load', function() {
+                if (xhr.responseText.trim() === "OK") {
+                    // Success! Turn button green with checkmark
+                    btnElement.style.background = '#32d74b';
+                    btnElement.style.color = '#000';
+                    btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
+                    // Reload the page after 1.5 seconds so the grid updates with the new photos
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    // If there were PHP upload errors (e.g. file too big), pop them up
+                    alert("Upload issues:\n" + xhr.responseText);
+                    window.location.reload();
+                }
+            });
+
+            xhr.addEventListener('error', function() {
+                alert('Network error. Please try again.');
                 window.location.reload();
             });
-            xhr.addEventListener('error', function() {
-                document.getElementById('progress-text').innerText = 'Network error. Please try again.';
-                document.getElementById('progress-text').style.color = '#ff453a';
-                setTimeout(() => {
-                    loader.style.display = 'none';
-                }, 3000);
-            });
+
             xhr.open('POST', window.location.href, true);
             xhr.send(formData);
         }
