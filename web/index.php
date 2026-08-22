@@ -876,7 +876,7 @@ if (file_exists($battery_file)) {
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             padding: 10px 14px;
-            border-radius: 24px;
+            border-radius: 30px;
             border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
         }
@@ -929,7 +929,7 @@ if (file_exists($battery_file)) {
 
         .lb-btn {
             padding: 10px 16px;
-            border-radius: 14px;
+            border-radius: 12px;
             font-size: 15px;
             font-weight: 600;
             border: none;
@@ -1010,7 +1010,7 @@ if (file_exists($battery_file)) {
         .modal-box {
             background: #1c1c1e;
             padding: 24px;
-            border-radius: 16px;
+            border-radius: 20px;
             width: 85%;
             max-width: 300px;
             text-align: center;
@@ -1041,7 +1041,7 @@ if (file_exists($battery_file)) {
             flex: 1;
             padding: 12px;
             border-radius: 10px;
-            font-size: 16px;
+            font-size: 12px;
             font-weight: 600;
             cursor: pointer;
             border: none;
