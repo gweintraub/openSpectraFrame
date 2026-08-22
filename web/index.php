@@ -1216,25 +1216,33 @@ if (file_exists($battery_file)) {
             const btnElement = document.querySelector('.secondary-btn');
             const originalHTML = btnElement.innerHTML;
 
-            // Lock width to prevent jitter, turn into a spinner
+            // Lock width to prevent jitter
             const originalWidth = btnElement.offsetWidth;
             btnElement.style.width = originalWidth + 'px';
             btnElement.style.pointerEvents = 'none';
-            btnElement.innerHTML = '<div class="spinner" style="margin: 0; width: 16px; height: 16px; border-width: 2px;"></div>';
+
+            // Build the spinner and a dedicated text span ONCE
+            btnElement.innerHTML = `
+            <div class="spinner" style="margin: 0; width: 16px; height: 16px; border-width: 2px;"></div>
+            <span id="upload-progress-text" style="margin-left: 8px;">0%</span>
+            `;
+
+            // Grab a reference to just the text span
+            const progressText = document.getElementById('upload-progress-text');
 
             const formData = new FormData(document.getElementById('uploadForm'));
             formData.append('is_ajax', '1');
 
             const xhr = new XMLHttpRequest();
 
-            // Update the button with live upload percentage
+            // Update ONLY the text inside the span, leaving the spinner element untouched
             xhr.upload.addEventListener('progress', function(e) {
-                if (e.lengthComputable) {
+                if (e.lengthComputable && progressText) {
                     const pct = Math.round((e.loaded / e.total) * 100);
                     if (pct < 100) {
-                        btnElement.innerHTML = '<div class="spinner" style="margin: 0; width: 16px; height: 16px; border-width: 2px;"></div> <span style="margin-left: 8px;">' + pct + '%</span>';
+                        progressText.innerText = pct + '%';
                     } else {
-                        btnElement.innerHTML = '<div class="spinner" style="margin: 0; width: 16px; height: 16px; border-width: 2px;"></div> <span style="margin-left: 8px;">Processing</span>';
+                        progressText.innerText = 'Processing';
                     }
                 }
             });
