@@ -967,6 +967,8 @@ if (file_exists($battery_file)) {
 
         .lb-delete:active {
             background: rgba(255, 69, 58, 0.35);
+            transform: scale(0.95);
+            /* Added the missing click bounce */
         }
 
         /* =========================================
@@ -1069,9 +1071,15 @@ if (file_exists($battery_file)) {
             color: white;
         }
 
-        /* Brighten the red delete button on hover */
         .btn-danger:hover {
-            filter: brightness(1.15);
+            background: #ff6961;
+            /* Explicit lighter red instead of filter */
+        }
+
+        .btn-danger:active {
+            background: #d73a30;
+            /* Darker red when pressed */
+            /* It inherently gets the scale(0.96) from .modal-buttons button:active */
         }
     </style>
 </head>
@@ -1393,9 +1401,16 @@ if (file_exists($battery_file)) {
             const filename = pendingDelete.file;
             const confirmBtn = document.getElementById('confirm-delete-btn');
 
-            // 1. Save original text and turn button into a spinner
+            // 1. Save original text and lock dimensions
             const originalHTML = confirmBtn.innerHTML;
+            const originalWidth = confirmBtn.offsetWidth;
+
+            confirmBtn.style.width = originalWidth + 'px';
             confirmBtn.style.pointerEvents = 'none';
+
+            // Force the button to stay "pressed down" visually while loading
+            confirmBtn.style.transform = 'scale(0.96)';
+
             confirmBtn.innerHTML = '<div class="spinner" style="margin: 0; width: 16px; height: 16px; border-width: 2px;"></div>';
 
             const formData = new FormData();
