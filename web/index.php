@@ -1250,7 +1250,7 @@ if (file_exists($battery_file)) {
                     // Success! Turn button green with checkmark
                     btnElement.style.background = '#32d74b';
                     btnElement.style.color = '#000';
-                    btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                    btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
                     // Reload the page after 1.5 seconds so the grid updates with the new photos
                     setTimeout(() => {
@@ -1351,8 +1351,12 @@ if (file_exists($battery_file)) {
             if (!pendingDelete) return;
 
             const filename = pendingDelete.file;
-            const isLightbox = pendingDelete.isLightbox;
-            closeConfirm();
+            const confirmBtn = document.getElementById('confirm-delete-btn');
+
+            // 1. Save original text and turn button into a spinner
+            const originalHTML = confirmBtn.innerHTML;
+            confirmBtn.style.pointerEvents = 'none';
+            confirmBtn.innerHTML = '<div class="spinner" style="margin: 0; width: 16px; height: 16px; border-width: 2px;"></div>';
 
             const formData = new FormData();
             formData.append('delete_file', filename);
@@ -1365,20 +1369,42 @@ if (file_exists($battery_file)) {
                 .then(response => response.text())
                 .then(text => {
                     if (text.trim() === "OK") {
-                        if (isLightbox) {
-                            window.location.reload();
-                        } else {
-                            const card = pendingDelete.btn.closest('.card');
-                            card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                            card.style.opacity = '0';
-                            card.style.transform = 'scale(0.8)';
-                            setTimeout(() => card.remove(), 300);
+                        // 2. Success! Close the modal and lightbox instantly
+                        closeConfirm();
+                        closeLightbox();
+
+                        // 3. Find the card in the background grid and animate it shrinking away
+                        const cards = document.querySelectorAll('.card');
+                        const targetCard = cards[currentGalleryIndex];
+
+                        if (targetCard) {
+                            targetCard.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+                            targetCard.style.opacity = '0';
+                            targetCard.style.transform = 'scale(0.5)';
+
+                            // 4. Remove it from the HTML and the Javascript array entirely
+                            setTimeout(() => {
+                                targetCard.remove();
+                                galleryImages.splice(currentGalleryIndex, 1);
+                            }, 400);
                         }
+
+                        // Reset button for next time
+                        confirmBtn.style.pointerEvents = 'auto';
+                        confirmBtn.innerHTML = originalHTML;
                     } else {
                         alert('Failed to delete photo from server.');
+                        closeConfirm();
+                        confirmBtn.style.pointerEvents = 'auto';
+                        confirmBtn.innerHTML = originalHTML;
                     }
                 })
-                .catch(() => alert('Network error while deleting.'));
+                .catch(() => {
+                    alert('Network error while deleting.');
+                    closeConfirm();
+                    confirmBtn.style.pointerEvents = 'auto';
+                    confirmBtn.innerHTML = originalHTML;
+                });
         }
 
         function shufflePhoto(btnElement) {
