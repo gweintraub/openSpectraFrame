@@ -1040,8 +1040,8 @@ if (file_exists($battery_file)) {
         .modal-buttons button {
             flex: 1;
             padding: 12px;
-            border-radius: 10px;
-            font-size: 12px;
+            border-radius: 12px;
+            font-size: 16px;
             font-weight: 600;
             cursor: pointer;
             border: none;
