@@ -1382,16 +1382,15 @@ if (file_exists($battery_file)) {
                             targetCard.style.opacity = '0';
                             targetCard.style.transform = 'scale(0.5)';
 
-                            // 4. Remove it from the HTML and the Javascript array entirely
+                            // 4. Silently reload the page as soon as the animation finishes.
+                            // This completely prevents the "wrong photo" index desync bug!
                             setTimeout(() => {
-                                targetCard.remove();
-                                galleryImages.splice(currentGalleryIndex, 1);
+                                window.location.reload();
                             }, 400);
+                        } else {
+                            window.location.reload();
                         }
 
-                        // Reset button for next time
-                        confirmBtn.style.pointerEvents = 'auto';
-                        confirmBtn.innerHTML = originalHTML;
                     } else {
                         alert('Failed to delete photo from server.');
                         closeConfirm();
