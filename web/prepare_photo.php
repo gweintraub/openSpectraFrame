@@ -135,7 +135,7 @@ echo "Applying localized tuning and dithering...\n";
 
 $cmd_final = "magick " .
     // 1. Bottom Layer: NATURAL BACKGROUND (Restored to 1.5,50% and 100,105)
-    "\\( {$safe_base} -sigmoidal-contrast 1.5,50% -modulate 100,105 \\) " .
+    "\\( {$safe_base} -level 2%,95%,1.15 -modulate 100,105 \\) " .
 
     // 2. Top Layer: PROTECTED FOREGROUND (Restored original channels)
     "\\( {$safe_base} -level 0%,100%,0.95 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
@@ -147,7 +147,7 @@ $cmd_final = "magick " .
     // 4. GLOBAL POLISH & DITHER (No opaque swapping!)
     "-unsharp 1.5x1+0.7+0.02 " .
     "-dither FloydSteinberg -remap {$safe_pal} " .
-    
+
     "PNG24:{$safe_out} 2>&1";
 
 exec($cmd_final, $output, $return_code);
