@@ -473,7 +473,9 @@ if (file_exists($battery_file)) {
     $b_data = json_decode(file_get_contents($battery_file), true);
     if ($b_data && isset($b_data['voltage'])) {
         $v = $b_data['voltage'];
+        $state = isset($b_data['state']) ? (int)$b_data['state'] : 0;
 
+        // Calculate standard percentage
         if ($v >= 4.20) $pct = 100;
         elseif ($v >= 4.00) $pct = 80 + (($v - 4.00) / 0.20) * 20;
         elseif ($v >= 3.90) $pct = 60 + (($v - 3.90) / 0.10) * 20;
@@ -484,20 +486,31 @@ if (file_exists($battery_file)) {
         else $pct = 0;
 
         $pct = (int)round($pct);
-        $color = $pct <= 20 ? '#ff453a' : '#32d74b';
-
-        // Pass the raw epoch timestamp (multiplied by 1000 for JavaScript)
         $file_time_ms = filemtime($battery_file) * 1000;
 
-        $fill_width = max(0, round(($pct / 100) * 12));
-        $fill_rect = $fill_width > 0 ? '<rect x="4" y="9" width="' . $fill_width . '" height="6" rx="1" fill="currentColor"></rect>' : '';
+        // Determine UI based on Hardware State
+        if ($state === 2) {
+            // STATE 2: Actively Charging (Yellow Lightning Bolt)
+            $color = 'var(--color-warning)';
+            $battery_icon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 18H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3.19M15 6h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-3.19"></path><line x1="23" y1="13" x2="23" y2="11"></line><polyline points="11 6 7 12 13 12 9 18"></polyline></svg>';
+            $display_text = 'Charging';
+        } elseif ($state === 3) {
+            // STATE 3: Fully Charged (Green Solid Battery)
+            $color = 'var(--color-success)';
+            $battery_icon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2" ry="2"></rect><line x1="22" y1="11" x2="22" y2="13"></line><rect x="4" y="9" width="12" height="6" rx="1" fill="currentColor"></rect></svg>';
+            $display_text = 'Fully Charged';
+        } else {
+            // STATE 0/1: Running on Battery (Standard dynamic fill)
+            $color = $pct <= 20 ? 'var(--color-danger)' : 'var(--color-success)';
+            $fill_width = max(0, round(($pct / 100) * 12));
+            $fill_rect = $fill_width > 0 ? '<rect x="4" y="9" width="' . $fill_width . '" height="6" rx="1" fill="currentColor"></rect>' : '';
+            $battery_icon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2" ry="2"></rect><line x1="22" y1="11" x2="22" y2="13"></line>' . $fill_rect . '</svg>';
+            $display_text = $pct . '%';
+        }
 
-        $battery_icon = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2" ry="2"></rect><line x1="22" y1="11" x2="22" y2="13"></line>' . $fill_rect . '</svg>';
-
-        // Added an ID and a data-timestamp attribute
         $battery_html = '
 <div id="battery-status" class="battery-icon-group" style="color: ' . $color . ';" data-timestamp="' . $file_time_ms . '" title="Loading time...">
-' . $battery_icon . ' <span>' . $pct . '%</span>
+' . $battery_icon . ' <span>' . $display_text . '</span>
 </div>';
     }
 }
@@ -521,12 +534,13 @@ if (file_exists($battery_file)) {
         1. GLOBALS & LAYOUT
         ========================================= */
         :root {
-            --color-accent:   #0a84ff; /* Apple Blue */
-            --color-success:  #32d74b; /* Apple Green */
-            --color-danger:   #ff453a; /* Apple Red */
-            --bg-card:        #1c1c1e;
-            --bg-element:     #2c2c2e;
-            --bg-hover:       #3a3a3c;
+            --color-accent: #0a84ff;
+            --color-success: #32d74b;
+            --color-warning: #ffd60a;
+            --color-danger: #ff453a;
+            --bg-card: #1c1c1e;
+            --bg-element: #2c2c2e;
+            --bg-hover: #3a3a3c;
         }
 
         body {
