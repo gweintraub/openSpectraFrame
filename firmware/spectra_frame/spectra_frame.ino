@@ -6,7 +6,6 @@
 #include <WiFiManager.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
-#include <esp32_cert_bundle.h>
 #include <time.h>
 #include <Preferences.h>  // For permanent flash storage
 #include "secrets.h"
@@ -256,7 +255,7 @@ void setup() {
             WiFi.mode(WIFI_OFF);
           } else {
             WiFiClientSecure checkClient;
-            checkClient.setCACertBundle(x509_crt_bundle, x509_crt_bundle_len);
+            checkClient.setCACert(CLOUDFLARE_ROOT_CA);
             HTTPClient checkHttp;
 
             String checkUrl = String(image_url);
@@ -423,7 +422,7 @@ bool fetchAndDisplayImage(float batteryVoltage, int state) {
     }
     
     WiFiClientSecure client;
-    client.setCACertBundle(x509_crt_bundle, x509_crt_bundle_len);
+    client.setCACert(CLOUDFLARE_ROOT_CA);
     HTTPClient http;
 
     String fullUrl = String(image_url) + "?v=" + String(batteryVoltage, 2) + "&state=" + String(state);
