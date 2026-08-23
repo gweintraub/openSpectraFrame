@@ -17,7 +17,7 @@
 EPaper epaper;
 PNG png;
 
-const bool DEV_MODE = false;
+const bool DEV_MODE = true;
 
 // --- VARIABLES THAT SURVIVE DEEP SLEEP ---
 RTC_DATA_ATTR int retryCount = 0;
@@ -372,7 +372,7 @@ void setup() {
 
     time_t currentTime = time(NULL);
     int ntpTimeout = 0;
-    while (currentTime < 1600000000 && ntpTimeout < 15) {
+    while (currentTime < 1600000000 && ntpTimeout < 30) {
       delay(500);
       Serial.print(".");
       currentTime = time(NULL);

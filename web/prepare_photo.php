@@ -137,7 +137,7 @@ echo "Applying localized tuning and dithering...\n";
 
 $cmd_final = "magick " .
     // 1. Bottom Layer: NATURAL BACKGROUND
-    "\\( {$safe_base} -sigmoidal-contrast 1.5,35% -modulate 100,120 \\) " .
+    "\\( {$safe_base} -sigmoidal-contrast 1.5,45% -modulate 100,110 \\) " .
 
     // 2. Top Layer: PROTECTED FOREGROUND
     "\\( {$safe_base} -level 0%,100%,0.95 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
