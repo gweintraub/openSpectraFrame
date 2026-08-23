@@ -453,7 +453,7 @@ $gallery_urls = [];
 if (is_dir($UPLOAD_DIR)) {
     $files = array_diff(scandir($UPLOAD_DIR), array('.', '..'));
     foreach ($files as $file) {
-        if (in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp'])) {
+        if (in_array(strtolower(pathinfo($file, PATHINFO_EXTENSION)), ['jpg', 'jpeg'])) {
             $images[] = $file;
         }
     }

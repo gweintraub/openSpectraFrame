@@ -70,7 +70,7 @@ echo "Generating ImageMagick command...\n";
 // 1. Generate the 6-color palette image (using v4 to force regeneration)
 $PALETTE_FILE = __DIR__ . '/palette_v4.png';
 if (!file_exists($PALETTE_FILE)) {
-    
+
     // EXACTLY AS YOU HAD IT: 6-pixel canvas
     $pal_img = imagecreatetruecolor(6, 1);
 
@@ -137,10 +137,10 @@ echo "Applying localized tuning and dithering...\n";
 
 $cmd_final = "magick " .
     // 1. Bottom Layer: NATURAL BACKGROUND
-    "\\( {$safe_base} -sigmoidal-contrast 1.5,50% -modulate 100,105 \\) " .
+    "\\( {$safe_base} -gamma 1.20 -sigmoidal-contrast 1.5,50% -modulate 100,105 \\) " .
 
     // 2. Top Layer: PROTECTED FOREGROUND
-    "\\( {$safe_base} -level 0%,100%,0.95 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
+    "\\( {$safe_base} -level 0%,100%,1.10 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
     "{$safe_fg} -compose CopyOpacity -composite \\) " .
 
     // 3. Stack them together and brutally flatten
@@ -149,10 +149,10 @@ $cmd_final = "magick " .
     // 4. GLOBAL POLISH & DITHER
     "-unsharp 1.5x1+0.7+0.02 " .
     "-dither FloydSteinberg -remap {$safe_pal} " .
-    
+
     // 5. THE MAGIC TRICK: Swap the Lure Green back to the C++ hardware green
     "-fill \"rgb(0,120,44)\" -opaque \"rgb(50,200,50)\" " .
-    
+
     "PNG24:{$safe_out} 2>&1";
 
 exec($cmd_final, $output, $return_code);
