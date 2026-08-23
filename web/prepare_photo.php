@@ -137,10 +137,10 @@ echo "Applying localized tuning and dithering...\n";
 
 $cmd_final = "magick " .
     // 1. Bottom Layer: NATURAL BACKGROUND
-    "\\( {$safe_base} -gamma 1.20 -sigmoidal-contrast 1.5,50% -modulate 100,105 \\) " .
+    "\\( {$safe_base} -sigmoidal-contrast 1.5,35% -modulate 100,120 \\) " .
 
     // 2. Top Layer: PROTECTED FOREGROUND
-    "\\( {$safe_base} -level 0%,100%,1.10 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
+    "\\( {$safe_base} -level 0%,100%,0.95 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
     "{$safe_fg} -compose CopyOpacity -composite \\) " .
 
     // 3. Stack them together and brutally flatten
