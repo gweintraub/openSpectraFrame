@@ -62,30 +62,28 @@ $FG_MASK = __DIR__ . '/temp_fg_mask.png';
 $BG_MASK = __DIR__ . '/temp_bg_mask.png';
 
 // =========================================================================
-// --- IMAGEMAGICK ACeP "LURE COLOR" DITHERING ENGINE ---
+// --- IMAGEMAGICK ACeP 7-COLOR DITHERING ENGINE ---
 // =========================================================================
 
 echo "Generating ImageMagick command...\n";
 
-// 1. Generate the 6-color palette image (using v4 to force regeneration)
-$PALETTE_FILE = __DIR__ . '/palette_v4.png';
+// 1. Generate the 6-color palette image (Original Hardware Pigments)
+$PALETTE_FILE = __DIR__ . '/palette_baseline.png';
 if (!file_exists($PALETTE_FILE)) {
-
-    // EXACTLY AS YOU HAD IT: 6-pixel canvas
     $pal_img = imagecreatetruecolor(6, 1);
 
-    // EXACTLY AS YOU HAD IT: 7 colors allocated (with Lure Green injected)
+    // Allocate the colors exactly as you originally had them
     $colors = [
         imagecolorallocate($pal_img, 0, 0, 0),       // Black
         imagecolorallocate($pal_img, 255, 255, 255), // White
-        imagecolorallocate($pal_img, 200, 32, 32),   // Red
-        imagecolorallocate($pal_img, 50, 200, 50),   // LURE GREEN (Brighter, catches foliage)
-        imagecolorallocate($pal_img, 0, 56, 168),    // Blue
-        imagecolorallocate($pal_img, 229, 184, 11),  // Yellow
+        imagecolorallocate($pal_img, 200, 32, 32),   // Realistic Red
+        imagecolorallocate($pal_img, 0, 120, 44),    // Realistic Green (RESTORED)
+        imagecolorallocate($pal_img, 0, 56, 168),    // Realistic Blue
+        imagecolorallocate($pal_img, 229, 184, 11),  // Realistic Yellow
         imagecolorallocate($pal_img, 214, 108, 21)   // Orange (Ghost color intact)
     ];
 
-    // EXACTLY AS YOU HAD IT: Loop stops at 6
+    // Original 6-pixel loop
     for ($i = 0; $i < 6; $i++) {
         imagesetpixel($pal_img, $i, 0, $colors[$i]);
     }
@@ -131,28 +129,25 @@ if ($py_ret !== 0 || !file_exists($FG_MASK) || !file_exists($BG_MASK)) {
 }
 
 // =========================================================================
-// --- PHASE 3: MASKED TUNING & DITHERING ---
+// --- PHASE 3: MASKED TUNING & DITHERING (RESTORED TO ORIGINAL) ---
 // =========================================================================
 echo "Applying localized tuning and dithering...\n";
 
 $cmd_final = "magick " .
-    // 1. Bottom Layer: NATURAL BACKGROUND
-    "\\( {$safe_base} -sigmoidal-contrast 1.5,45% -modulate 100,110 \\) " .
+    // 1. Bottom Layer: NATURAL BACKGROUND (Restored to 1.5,50% and 100,105)
+    "\\( {$safe_base} -sigmoidal-contrast 1.5,50% -modulate 100,105 \\) " .
 
-    // 2. Top Layer: PROTECTED FOREGROUND
+    // 2. Top Layer: PROTECTED FOREGROUND (Restored original channels)
     "\\( {$safe_base} -level 0%,100%,0.95 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
     "{$safe_fg} -compose CopyOpacity -composite \\) " .
 
     // 3. Stack them together and brutally flatten
     "-compose Over -composite -background white -flatten " .
 
-    // 4. GLOBAL POLISH & DITHER
+    // 4. GLOBAL POLISH & DITHER (No opaque swapping!)
     "-unsharp 1.5x1+0.7+0.02 " .
     "-dither FloydSteinberg -remap {$safe_pal} " .
-
-    // 5. THE MAGIC TRICK: Swap the Lure Green back to the C++ hardware green
-    "-fill \"rgb(0,120,44)\" -opaque \"rgb(50,200,50)\" " .
-
+    
     "PNG24:{$safe_out} 2>&1";
 
 exec($cmd_final, $output, $return_code);
