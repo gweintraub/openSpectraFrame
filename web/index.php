@@ -54,6 +54,8 @@ session_set_cookie_params([
 
 session_start();
 
+header("Cache-Control: private, no-cache, must-revalidate");
+
 if (isset($_POST['logout'])) {
     unset($_SESSION['authenticated']);
     header("Location: " . $_SERVER['PHP_SELF']);
