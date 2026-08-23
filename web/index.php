@@ -520,6 +520,15 @@ if (file_exists($battery_file)) {
         /* =========================================
         1. GLOBALS & LAYOUT
         ========================================= */
+        :root {
+            --color-accent:   #0a84ff; /* Apple Blue */
+            --color-success:  #32d74b; /* Apple Green */
+            --color-danger:   #ff453a; /* Apple Red */
+            --bg-card:        #1c1c1e;
+            --bg-element:     #2c2c2e;
+            --bg-hover:       #3a3a3c;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: #000;
@@ -536,7 +545,7 @@ if (file_exists($battery_file)) {
         .container {
             max-width: 600px;
             margin: 0 auto;
-            background: #1c1c1e;
+            background: var(--bg-card);
             padding: 20px;
             border-radius: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
@@ -550,7 +559,7 @@ if (file_exists($battery_file)) {
         }
 
         .flash {
-            background: #32d74b;
+            background: var(--color-success);
             color: #000;
             padding: 14px;
             border-radius: 12px;
@@ -584,7 +593,7 @@ if (file_exists($battery_file)) {
             align-items: center;
             padding-bottom: 24px;
             margin-bottom: 20px;
-            border-bottom: 1px solid #2c2c2e;
+            border-bottom: 1px solid var(--bg-element);
         }
 
         .nav-center {
@@ -653,7 +662,7 @@ if (file_exists($battery_file)) {
         }
 
         .icon-btn:active {
-            color: #0a84ff;
+            color: var(--color-accent);
             transform: scale(0.85);
         }
 
@@ -745,16 +754,16 @@ if (file_exists($battery_file)) {
         }
 
         .secondary-btn {
-            background: #2c2c2e;
+            background: var(--bg-element);
             color: #fff;
         }
 
         .secondary-btn svg {
-            color: #0a84ff;
+            color: var(--color-accent);
         }
 
         .upload-wrapper:hover .secondary-btn {
-            background: #3a3a3c;
+            background: var(--bg-hover);
         }
 
         .upload-wrapper:active .secondary-btn {
@@ -762,7 +771,7 @@ if (file_exists($battery_file)) {
         }
 
         .primary-btn {
-            background: #0a84ff;
+            background: var(--color-accent);
             color: #fff;
         }
 
@@ -796,14 +805,14 @@ if (file_exists($battery_file)) {
             border-radius: 12px;
             overflow: hidden;
             aspect-ratio: 3/4;
-            background: #2c2c2e;
+            background: var(--bg-element);
         }
 
         .current-badge {
             position: absolute;
             top: 8px;
             right: 8px;
-            background: #32d74b;
+            background: var(--color-success);
             color: #000;
             width: 28px;
             height: 28px;
@@ -947,7 +956,7 @@ if (file_exists($battery_file)) {
         }
 
         .lb-send {
-            background: #0a84ff;
+            background: var(--color-accent);
         }
 
         .lb-send:hover {
@@ -961,7 +970,7 @@ if (file_exists($battery_file)) {
 
         .lb-delete {
             background: rgba(255, 69, 58, 0.15);
-            color: #ff453a;
+            color: var(--color-danger);
         }
 
         .lb-delete:hover {
@@ -971,7 +980,6 @@ if (file_exists($battery_file)) {
         .lb-delete:active {
             background: rgba(255, 69, 58, 0.35);
             transform: scale(0.95);
-            /* Added the missing click bounce */
         }
 
         /* =========================================
@@ -1013,13 +1021,13 @@ if (file_exists($battery_file)) {
         }
 
         .modal-box {
-            background: #1c1c1e;
+            background: var(--bg-card);
             padding: 24px;
             border-radius: 20px;
             width: 85%;
             max-width: 300px;
             text-align: center;
-            border: 1px solid #2c2c2e;
+            border: 1px solid var(--bg-element);
             box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
         }
 
@@ -1050,39 +1058,33 @@ if (file_exists($battery_file)) {
             font-weight: 600;
             cursor: pointer;
             border: none;
-            /* Updated to smoothly transition colors, filters, and scaling */
             transition: background 0.2s, filter 0.2s, transform 0.2s;
         }
 
-        /* Make them gently scale down when clicked, like the other UI buttons */
         .modal-buttons button:active {
             transform: scale(0.96);
         }
 
         .btn-cancel {
-            background: #2c2c2e;
-            color: #0a84ff;
+            background: var(--bg-element);
+            color: var(--color-accent);
         }
 
-        /* Lighten the cancel button on hover */
         .btn-cancel:hover {
-            background: #3a3a3c;
+            background: var(--bg-hover);
         }
 
         .btn-danger {
-            background: #ff453a;
+            background: var(--color-danger);
             color: white;
         }
 
         .btn-danger:hover {
-            background: #ff6961;
-            /* Explicit lighter red instead of filter */
+            filter: brightness(1.15);
         }
 
         .btn-danger:active {
-            background: #d73a30;
-            /* Darker red when pressed */
-            /* It inherently gets the scale(0.96) from .modal-buttons button:active */
+            filter: brightness(0.9);
         }
     </style>
 </head>
@@ -1298,10 +1300,10 @@ if (file_exists($battery_file)) {
 
             xhr.addEventListener('load', function() {
                 if (xhr.responseText.trim() === "OK") {
-                    // Success! Turn button green with checkmark
-                    btnElement.style.background = '#32d74b';
+                    // Success! Turn button green with stroke="#fff"
+                    btnElement.style.background = 'var(--color-success)';
                     btnElement.style.color = '#fff';
-                    btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                    btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
                     // Reload the page after 1.5 seconds so the grid updates with the new photos
                     setTimeout(() => {
@@ -1488,9 +1490,10 @@ if (file_exists($battery_file)) {
                 ])
                 .then(([text]) => {
                     if (text.trim() === "OK") {
-                        btnElement.style.background = '#32d74b';
+                        // Set CSS variables via JS and use stroke="#fff"
+                        btnElement.style.background = 'var(--color-success)';
                         btnElement.style.color = '#fff';
-                        btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                        btnElement.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
 
                         // Force the UI to update the green badge instantly!
                         pollActiveImage();
@@ -1560,9 +1563,10 @@ if (file_exists($battery_file)) {
                 ])
                 .then(([text]) => {
                     if (text.trim() === "OK") {
-                        btn.style.background = '#32d74b';
+                        // Set CSS variables via JS and use stroke="#fff"
+                        btn.style.background = 'var(--color-success)';
                         btn.style.color = '#fff';
-                        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Sent!';
+                        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> Sent!';
 
                         // Force the UI to update the green badge instantly!
                         pollActiveImage();
