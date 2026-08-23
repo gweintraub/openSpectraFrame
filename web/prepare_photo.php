@@ -62,28 +62,30 @@ $FG_MASK = __DIR__ . '/temp_fg_mask.png';
 $BG_MASK = __DIR__ . '/temp_bg_mask.png';
 
 // =========================================================================
-// --- IMAGEMAGICK ACeP 7-COLOR DITHERING ENGINE ---
+// --- IMAGEMAGICK ACeP "LURE COLOR" DITHERING ENGINE ---
 // =========================================================================
 
 echo "Generating ImageMagick command...\n";
 
-// 1. Generate the 6-color palette image if it doesn't exist
-$PALETTE_FILE = __DIR__ . '/palette.png';
+// 1. Generate the 6-color palette image (using v4 to force regeneration)
+$PALETTE_FILE = __DIR__ . '/palette_v4.png';
 if (!file_exists($PALETTE_FILE)) {
+    
+    // EXACTLY AS YOU HAD IT: 6-pixel canvas
     $pal_img = imagecreatetruecolor(6, 1);
 
-    // Allocate the colors (physical pigment matching)
+    // EXACTLY AS YOU HAD IT: 7 colors allocated (with Lure Green injected)
     $colors = [
-        imagecolorallocate($pal_img, 0, 0, 0), // Black
+        imagecolorallocate($pal_img, 0, 0, 0),       // Black
         imagecolorallocate($pal_img, 255, 255, 255), // White
-        imagecolorallocate($pal_img, 200, 32, 32), // Red
-        imagecolorallocate($pal_img, 0, 120, 44), // Green
-        imagecolorallocate($pal_img, 0, 56, 168), // Blue
-        imagecolorallocate($pal_img, 229, 184, 11), // Yellow
-        imagecolorallocate($pal_img, 214, 108, 21) // Orange
+        imagecolorallocate($pal_img, 200, 32, 32),   // Red
+        imagecolorallocate($pal_img, 50, 200, 50),   // LURE GREEN (Brighter, catches foliage)
+        imagecolorallocate($pal_img, 0, 56, 168),    // Blue
+        imagecolorallocate($pal_img, 229, 184, 11),  // Yellow
+        imagecolorallocate($pal_img, 214, 108, 21)   // Orange (Ghost color intact)
     ];
 
-    // Actually PAINT the 7 pixels!
+    // EXACTLY AS YOU HAD IT: Loop stops at 6
     for ($i = 0; $i < 6; $i++) {
         imagesetpixel($pal_img, $i, 0, $colors[$i]);
     }
@@ -138,9 +140,6 @@ $cmd_final = "magick " .
     "\\( {$safe_base} -sigmoidal-contrast 1.5,50% -modulate 100,105 \\) " .
 
     // 2. Top Layer: PROTECTED FOREGROUND
-    // FIX 1: -channel R -gamma 1.05 lifts the red midtones slightly.
-    // FIX 2: -channel G -gamma 0.95 suppresses the green midtones slightly.
-    // FIX 3: Bumped saturation back to 95 (from 85) so the algorithm has enough color data to avoid muddy grays.
     "\\( {$safe_base} -level 0%,100%,0.95 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
     "{$safe_fg} -compose CopyOpacity -composite \\) " .
 
@@ -150,6 +149,10 @@ $cmd_final = "magick " .
     // 4. GLOBAL POLISH & DITHER
     "-unsharp 1.5x1+0.7+0.02 " .
     "-dither FloydSteinberg -remap {$safe_pal} " .
+    
+    // 5. THE MAGIC TRICK: Swap the Lure Green back to the C++ hardware green
+    "-fill \"rgb(0,120,44)\" -opaque \"rgb(50,200,50)\" " .
+    
     "PNG24:{$safe_out} 2>&1";
 
 exec($cmd_final, $output, $return_code);
