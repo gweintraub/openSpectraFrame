@@ -6,6 +6,7 @@
 #include <WiFiManager.h>
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <esp32_cert_bundle.h>
 #include <time.h>
 #include <Preferences.h>  // For permanent flash storage
 #include "secrets.h"
@@ -260,158 +261,161 @@ void setup() {
         }
 
         if (WiFi.status() == WL_CONNECTED) {
-          WiFiClientSecure checkClient;
-          checkClient.setInsecure();
-          HTTPClient checkHttp;
 
-          String checkUrl = String(image_url);
-          checkUrl.replace("gallery.php", "check_update.php");
-
-          checkHttp.begin(checkClient, checkUrl);
-          checkHttp.addHeader("X-API-Key", api_key);
-
-          if (checkHttp.GET() == HTTP_CODE_OK && checkHttp.getString() == "1") {
-            Serial.println("\nManual update requested by portal!");
-            needsUpdate = true;
-          } else {
-            Serial.println("\nNo updates pending.");
+          if (time(NULL) < 1704067200) {
+            Serial.println("\nERROR: Clock is invalid. Aborting heartbeat to prevent downgrade attack.");
             WiFi.disconnect(true);
             WiFi.mode(WIFI_OFF);
+          } else {
+            WiFiClientSecure checkClient;
+            checkClient.setCACertBundle(x509_crt_bundle, x509_crt_bundle_len);
+            HTTPClient checkHttp;
+
+            String checkUrl = String(image_url);
+            checkUrl.replace("gallery.php", "check_update.php");
+
+            checkHttp.begin(checkClient, checkUrl);
+            checkHttp.addHeader("X-API-Key", api_key);
+
+            if (checkHttp.GET() == HTTP_CODE_OK && checkHttp.getString() == "1") {
+              Serial.println("\nManual update requested by portal!");
+              needsUpdate = true;
+            } else {
+              Serial.println("\nNo updates pending.");
+              WiFi.disconnect(true);
+              WiFi.mode(WIFI_OFF);
+            }
+            checkHttp.end();
           }
-          checkHttp.end();
         } else {
-          Serial.println("\nWiFi timeout. Sleeping.");
-          WiFi.disconnect(true);
-          WiFi.mode(WIFI_OFF);
-        }
-      } else {
-        Serial.printf("Silent hardware heartbeat only. Skipping network ping (%d/%d).\n", network_ping_counter, ping_threshold);
-      }
-    }
-  }
-
-  if (!needsUpdate) {
-    uint64_t sleep_time_sec = is_gift_transit ? 15ULL : 300ULL;
-    Serial.printf("Heartbeat complete. No update needed. Sleeping %llu seconds...\n", sleep_time_sec);
-    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-    esp_deep_sleep_start();
-  }
-
-  // --- 3. FULL SYSTEM WAKEUP (State Change or Midnight) ---
-  Serial.println("System Wake Triggered! Booting E-Paper and WiFi...");
-
-  epaper.begin();
-  epaper.setRotation(0);
-  bool imageSuccess = false;
-
-  Serial.print("Attempting silent connection to stored network...");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin();
-
-  int timeoutCounter = 0;
-  while (WiFi.status() != WL_CONNECTED && timeoutCounter < 20) {
-    delay(500);
-    Serial.print(".");
-    timeoutCounter++;
-  }
-
-  if (WiFi.status() != WL_CONNECTED) {
-    if (frame_state == 2 || frame_state == 3 || DEV_MODE) {
-      Serial.println("\nNo stored network found. Launching safe portal...");
-      WiFiManager wm;
-      wm.setConfigPortalTimeout(180);
-
-      // GLOBAL TIMEZONE LIST (Hides default textbox, injects custom dropdown)
-      const char* custom_html =
-        "type='hidden'> <label for='tz'><b>Time Zone</b></label><br/>"
-        "<select name='tz' id='tz' style='width:100%; padding:5px;'>"
-        "<option value='UTC0'>UTC / GMT</option>"
-        "<option value='WAT-1'>Africa - West Africa Time</option>"
-        "<option value='SAST-2'>Africa - South Africa Standard</option>"
-        "<option value='EAT-3'>Africa - East Africa Time</option>"
-        "<option value='IST-5:30'>Asia - India Standard</option>"
-        "<option value='WIB-7'>Asia - Western Indonesia</option>"
-        "<option value='CST-8'>Asia - China Standard / Beijing</option>"
-        "<option value='JST-9'>Asia - Japan Standard</option>"
-        "<option value='AEST-10AEDT,M10.1.0,M4.1.0/3'>Australia - Sydney</option>"
-        "<option value='CET-1CEST,M3.5.0,M10.5.0/3'>Europe - Central</option>"
-        "<option value='GMT0BST,M3.5.0/1,M10.5.0'>Europe - London</option>"
-        "<option value='BRT3BRST,M11.1.0/0,M2.3.0/0'>South America - Brasilia</option>"
-        "<option value='ART3'>South America - Argentina</option>"
-        "<option value='EST5EDT,M3.2.0,M11.1.0'>US & Canada - Eastern</option>"
-        "<option value='CST6CDT,M3.2.0,M11.1.0'>US & Canada - Central</option>"
-        "<option value='MST7MDT,M3.2.0,M11.1.0'>US & Canada - Mountain</option>"
-        "<option value='PST8PDT,M3.2.0,M11.1.0'>US & Canada - Pacific</option>"
-        "</select><br";  // Deliberately unclosed bracket for WiFiManager to complete
-
-      WiFiManagerParameter custom_tz("tz", "Time Zone", "", 50, custom_html);
-      wm.addParameter(&custom_tz);
-
-      if (!wm.autoConnect("Frame Setup")) {
-        Serial.println("Failed to connect or hit timeout.");
-      } else {
-        Serial.println("Successfully connected via portal!");
-        is_gift_transit = false;
-
-        String selected_tz = custom_tz.getValue();
-        if (selected_tz.length() > 5) {
-          preferences.begin("frame", false);
-          preferences.putString("tz", selected_tz);
-          preferences.end();
-          current_timezone = selected_tz;
-          Serial.printf("New Timezone Saved to Flash: %s\n", current_timezone.c_str());
+          Serial.printf("Silent hardware heartbeat only. Skipping network ping (%d/%d).\n", network_ping_counter, ping_threshold);
         }
       }
-    } else {
-      Serial.println("\nNo stored network found, but running on battery.");
-      Serial.println("Transit Mode Active: Skipping portal to save power. Device must be plugged in to setup.");
     }
-  } else {
-    Serial.println("\nConnected silently!");
-    is_gift_transit = false;
-  }
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("Syncing clock via NTP...");
-    configTzTime(current_timezone.c_str(), "pool.ntp.org", "time.nist.gov");
+    if (!needsUpdate) {
+      uint64_t sleep_time_sec = is_gift_transit ? 15ULL : 300ULL;
+      Serial.printf("Heartbeat complete. No update needed. Sleeping %llu seconds...\n", sleep_time_sec);
+      esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+      esp_deep_sleep_start();
+    }
 
-    time_t currentTime = time(NULL);
-    int ntpTimeout = 0;
-    while (currentTime < 1600000000 && ntpTimeout < 15) {
+    // --- 3. FULL SYSTEM WAKEUP (State Change or Midnight) ---
+    Serial.println("System Wake Triggered! Booting E-Paper and WiFi...");
+
+    epaper.begin();
+    epaper.setRotation(0);
+    bool imageSuccess = false;
+
+    Serial.print("Attempting silent connection to stored network...");
+    WiFi.mode(WIFI_STA);
+    WiFi.begin();
+
+    int timeoutCounter = 0;
+    while (WiFi.status() != WL_CONNECTED && timeoutCounter < 20) {
       delay(500);
       Serial.print(".");
-      currentTime = time(NULL);
-      ntpTimeout++;
+      timeoutCounter++;
     }
-    Serial.println();
 
-    long secondsToMidnight = getSecondsUntilNextWake(0, 5);
-    next_midnight_epoch = (uint32_t)(currentTime + secondsToMidnight);
+    if (WiFi.status() != WL_CONNECTED) {
+      if (frame_state == 2 || frame_state == 3 || DEV_MODE) {
+        Serial.println("\nNo stored network found. Launching safe portal...");
+        WiFiManager wm;
+        wm.setConfigPortalTimeout(180);
 
-    imageSuccess = fetchAndDisplayImage(batteryVoltage, frame_state);
-  }
+        // GLOBAL TIMEZONE LIST (Hides default textbox, injects custom dropdown)
+        const char* custom_html =
+          "type='hidden'> <label for='tz'><b>Time Zone</b></label><br/>"
+          "<select name='tz' id='tz' style='width:100%; padding:5px;'>"
+          "<option value='UTC0'>UTC / GMT</option>"
+          "<option value='WAT-1'>Africa - West Africa Time</option>"
+          "<option value='SAST-2'>Africa - South Africa Standard</option>"
+          "<option value='EAT-3'>Africa - East Africa Time</option>"
+          "<option value='IST-5:30'>Asia - India Standard</option>"
+          "<option value='WIB-7'>Asia - Western Indonesia</option>"
+          "<option value='CST-8'>Asia - China Standard / Beijing</option>"
+          "<option value='JST-9'>Asia - Japan Standard</option>"
+          "<option value='AEST-10AEDT,M10.1.0,M4.1.0/3'>Australia - Sydney</option>"
+          "<option value='CET-1CEST,M3.5.0,M10.5.0/3'>Europe - Central</option>"
+          "<option value='GMT0BST,M3.5.0/1,M10.5.0'>Europe - London</option>"
+          "<option value='BRT3BRST,M11.1.0/0,M2.3.0/0'>South America - Brasilia</option>"
+          "<option value='ART3'>South America - Argentina</option>"
+          "<option value='EST5EDT,M3.2.0,M11.1.0'>US & Canada - Eastern</option>"
+          "<option value='CST6CDT,M3.2.0,M11.1.0'>US & Canada - Central</option>"
+          "<option value='MST7MDT,M3.2.0,M11.1.0'>US & Canada - Mountain</option>"
+          "<option value='PST8PDT,M3.2.0,M11.1.0'>US & Canada - Pacific</option>"
+          "</select><br";  // Deliberately unclosed bracket for WiFiManager to complete
 
-  // --- 4. POST-UPDATE CLEANUP & SLEEP ---
-  if (DEV_MODE) {
-    Serial.println("DEV MODE ACTIVE: Bypassing deep sleep to keep USB alive.");
-    delay(30000);
-    ESP.restart();
-  } else {
-    if (!imageSuccess) {
-      retryCount++;
-      Serial.printf("Refresh failed. Attempt %d of 3.\n", retryCount);
+        WiFiManagerParameter custom_tz("tz", "Time Zone", "", 50, custom_html);
+        wm.addParameter(&custom_tz);
+
+        if (!wm.autoConnect("Frame Setup")) {
+          Serial.println("Failed to connect or hit timeout.");
+        } else {
+          Serial.println("Successfully connected via portal!");
+          is_gift_transit = false;
+
+          String selected_tz = custom_tz.getValue();
+          if (selected_tz.length() > 5) {
+            preferences.begin("frame", false);
+            preferences.putString("tz", selected_tz);
+            preferences.end();
+            current_timezone = selected_tz;
+            Serial.printf("New Timezone Saved to Flash: %s\n", current_timezone.c_str());
+          }
+        }
+      } else {
+        Serial.println("\nNo stored network found, but running on battery.");
+        Serial.println("Transit Mode Active: Skipping portal to save power. Device must be plugged in to setup.");
+      }
     } else {
-      retryCount = 0;
+      Serial.println("\nConnected silently!");
+      is_gift_transit = false;
     }
 
-    Serial.println("Tasks complete. Heartbeat resuming...");
-    Serial.flush();
-    delay(500);
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println("Syncing clock via NTP...");
+      configTzTime(current_timezone.c_str(), "pool.ntp.org", "time.nist.gov");
 
-    uint64_t sleep_time_sec = is_gift_transit ? 15ULL : 300ULL;
-    Serial.printf("Sleeping %llu seconds...\n", sleep_time_sec);
-    esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
-    esp_deep_sleep_start();
+      time_t currentTime = time(NULL);
+      int ntpTimeout = 0;
+      while (currentTime < 1600000000 && ntpTimeout < 15) {
+        delay(500);
+        Serial.print(".");
+        currentTime = time(NULL);
+        ntpTimeout++;
+      }
+      Serial.println();
+
+      long secondsToMidnight = getSecondsUntilNextWake(0, 5);
+      next_midnight_epoch = (uint32_t)(currentTime + secondsToMidnight);
+
+      imageSuccess = fetchAndDisplayImage(batteryVoltage, frame_state);
+    }
+
+    // --- 4. POST-UPDATE CLEANUP & SLEEP ---
+    if (DEV_MODE) {
+      Serial.println("DEV MODE ACTIVE: Bypassing deep sleep to keep USB alive.");
+      delay(30000);
+      ESP.restart();
+    } else {
+      if (!imageSuccess) {
+        retryCount++;
+        Serial.printf("Refresh failed. Attempt %d of 3.\n", retryCount);
+      } else {
+        retryCount = 0;
+      }
+
+      Serial.println("Tasks complete. Heartbeat resuming...");
+      Serial.flush();
+      delay(500);
+
+      uint64_t sleep_time_sec = is_gift_transit ? 15ULL : 300ULL;
+      Serial.printf("Sleeping %llu seconds...\n", sleep_time_sec);
+      esp_sleep_enable_timer_wakeup(sleep_time_sec * 1000000ULL);
+      esp_deep_sleep_start();
+    }
   }
 }
 
@@ -421,9 +425,12 @@ void loop() {}
 bool fetchAndDisplayImage(float batteryVoltage, int state) {
   if (WiFi.status() == WL_CONNECTED) {
 
-    // 1. STACK ALLOCATION: Automatically cleans up when function exits
+    if (time(NULL) < 1704067200) {
+      Serial.println("FATAL ERROR: Clock is invalid. Aborting connection.");
+      return false;
+    }
     WiFiClientSecure client;
-    client.setInsecure();
+    client.setCACertBundle(x509_crt_bundle, x509_crt_bundle_len);
     HTTPClient http;
 
     String fullUrl = String(image_url) + "?v=" + String(batteryVoltage, 2) + "&state=" + String(state);
