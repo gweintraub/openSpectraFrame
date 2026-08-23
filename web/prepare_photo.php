@@ -129,13 +129,13 @@ if ($py_ret !== 0 || !file_exists($FG_MASK) || !file_exists($BG_MASK)) {
 }
 
 // =========================================================================
-// --- PHASE 3: MASKED TUNING & DITHERING (RESTORED TO ORIGINAL) ---
+// --- PHASE 3: MASKED TUNING & DITHERING ---
 // =========================================================================
 echo "Applying localized tuning and dithering...\n";
 
 $cmd_final = "magick " .
     // 1. Bottom Layer: NATURAL BACKGROUND (Restored to 1.5,50% and 100,105)
-    "\\( {$safe_base} -level 2%,95%,1.15 -modulate 100,105 \\) " .
+    "\\( {$safe_base} -level 2%,95%,1.15 -black-threshold 5% -modulate 100,105 \\) " .
 
     // 2. Top Layer: PROTECTED FOREGROUND (Restored original channels)
     "\\( {$safe_base} -level 0%,100%,0.95 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
