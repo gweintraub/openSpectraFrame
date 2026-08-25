@@ -47,7 +47,7 @@ else {
 }
 
 // ---------------------------------------------------------
-// NEW: Always write the chosen image (manual or shuffle) to history!
+// Always write the chosen image (manual or shuffle) to history!
 // ---------------------------------------------------------
 $history[] = $src_file;
 if (count($history) > $max_history) {
@@ -72,7 +72,6 @@ $PALETTE_FILE = __DIR__ . '/palette_baseline.png';
 if (!file_exists($PALETTE_FILE)) {
     $pal_img = imagecreatetruecolor(6, 1);
 
-    // Allocate the colors exactly as you originally had them
     $colors = [
         imagecolorallocate($pal_img, 0, 0, 0),       // Black
         imagecolorallocate($pal_img, 255, 255, 255), // White
@@ -83,7 +82,6 @@ if (!file_exists($PALETTE_FILE)) {
         imagecolorallocate($pal_img, 214, 108, 21)   // Orange (Ghost color intact)
     ];
 
-    // Original 6-pixel loop
     for ($i = 0; $i < 6; $i++) {
         imagesetpixel($pal_img, $i, 0, $colors[$i]);
     }
@@ -114,9 +112,9 @@ $cmd_resize = "magick {$safe_src} -auto-orient -resize 1200x1600^ -gravity cente
 exec($cmd_resize);
 
 // =========================================================================
-// --- PHASE 2: AI SEGMENTATION ---
+// --- PHASE 2: ML SEGMENTATION ---
 // =========================================================================
-echo "Running AI face/body detection...\n";
+echo "Running ML face/body detection...\n";
 
 $python_script = escapeshellarg(__DIR__ . '/masker.py');
 $python_cmd = "python3 {$python_script} {$safe_base} {$safe_fg} {$safe_bg}";
@@ -134,10 +132,10 @@ if ($py_ret !== 0 || !file_exists($FG_MASK) || !file_exists($BG_MASK)) {
 echo "Applying localized tuning and dithering...\n";
 
 $cmd_final = "magick " .
-    // 1. Bottom Layer: NATURAL BACKGROUND (Restored to 1.5,50% and 100,105)
+    // 1. Bottom Layer: NATURAL BACKGROUND
     "\\( {$safe_base} -level 2%,95%,1.15 -black-threshold 5% -modulate 100,105 \\) " .
 
-    // 2. Top Layer: PROTECTED FOREGROUND (Restored original channels)
+    // 2. Top Layer: PROTECTED FOREGROUND
     "\\( {$safe_base} -level 0%,100%,0.95 -channel R -gamma 1.05 +channel -channel G -gamma 0.95 +channel -modulate 95,95 " .
     "{$safe_fg} -compose CopyOpacity -composite \\) " .
 

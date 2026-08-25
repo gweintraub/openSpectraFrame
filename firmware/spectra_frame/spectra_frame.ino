@@ -31,7 +31,7 @@ RTC_DATA_ATTR bool is_gift_transit = false;  // Tracks if are in fast-pulse gift
 String current_timezone = "EST5EDT,M3.2.0,M11.1.0";  // Default, will be overwritten
 
 // ----------------------------------------------------
-// ORIGINAL, FLAWLESS COLOR RENDERING METHOD
+// COLOR RENDERING
 // ----------------------------------------------------
 int pngDraw(PNGDRAW* pDraw) {
   if (pDraw->y == 0) {
@@ -120,7 +120,7 @@ void setup() {
   Serial.begin(115200);
 
   // ==========================================
-  // ELEGANT WI-FI WIPE (Zero Battery Waste)
+  // WI-FI WIPE (Zero Battery Waste)
   // ==========================================
   esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
 

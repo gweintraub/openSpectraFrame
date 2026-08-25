@@ -37,7 +37,7 @@ if ($v > 0) {
 }
 
 // ==========================================
-// NEW: Clear the pending update flag
+// Clear the pending update flag
 // ==========================================
 $STATE_FILE = __DIR__ . '/frame_state.json';
 if (file_exists($STATE_FILE)) {
@@ -47,7 +47,6 @@ if (file_exists($STATE_FILE)) {
         file_put_contents($STATE_FILE, json_encode($state_data));
     }
 }
-// ==========================================
 
 $READY_FILE = __DIR__ . '/ready_for_frame.png';
 
@@ -69,7 +68,7 @@ if ($state == 0 && !$is_missing_photo) {
 
 // STATE > 0 OR MISSING PHOTO: Draw dynamic UI overlay.
 if ($is_missing_photo) {
-    // Create a blank canvas matching the panel resolution (1200x1600 based on your ImageMagick sizing)
+    // Create a blank canvas matching the panel resolution (1200x1600 based on ImageMagick sizing)
     $img = imagecreatetruecolor(1200, 1600);
     $white_bg = imagecolorallocate($img, 255, 255, 255);
     imagefill($img, 0, 0, $white_bg);
@@ -128,7 +127,6 @@ imagefilledrectangle($img, 20, 20, 580, 160, $black);
 // 2. Draw the colored inner background, leaving just the 2px border
 imagefilledrectangle($img, 22, 22, 578, 158, $bg_color);
 
-// 3. Draw the text with dialed-back sizes and NO anti-aliasing
 $font_path = __DIR__ . '/OpenSans-Medium.ttf'; // Ensure this matches your actual filename
 $font_size_1 = 36;
 $font_size_2 = 24;
@@ -144,7 +142,7 @@ if (file_exists($font_path)) {
     $text_width_2 = $bbox2[2] - $bbox2[0];
     $x2 = 22 + ((556 - $text_width_2) / 2);
 
-    // Draw the razor-sharp text
+    // Draw the text
     imagettftext($img, $font_size_1, 0, (int)$x1, 80, $text_color, $font_path, $line1);
     imagettftext($img, $font_size_2, 0, (int)$x2, 135, $text_color, $font_path, $line2);
 } else {

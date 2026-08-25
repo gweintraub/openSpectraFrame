@@ -688,7 +688,7 @@ if (file_exists($battery_file)) {
             height: 18px;
         }
 
-        /* --- MOBILE MEDIA QUERY (iPhone Mini Adjustments) --- */
+        /* --- MOBILE MEDIA QUERY --- */
         @media (max-width: 420px) {
             .nav-logo {
                 width: 46px;
