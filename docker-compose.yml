@@ -25,5 +25,5 @@ services:
         container_name: cloudflared_tunnel
         restart: unless-stopped
         env_file:
-            - .env
+            - .env.tunnel
         command: tunnel --no-autoupdate run

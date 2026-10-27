@@ -2,6 +2,7 @@
 # SECRET & CONFIG FILES (NEVER UPLOAD)
 # ==========================================
 .env
+.env.tunnel
 config.php
 secrets.h
 

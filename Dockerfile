@@ -24,3 +24,6 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # 4. Install the Machine Learning packages
 # "headless" ensures OpenCV doesn't crash trying to find a GUI monitor
 RUN pip install --no-cache-dir opencv-python-headless mediapipe==0.10.14
+
+# 5. PHP2Shell hardening (CVE-2026-109618/109619). App doesn't use server-side upload progress.
+RUN echo "session.upload_progress.enabled=0" > /usr/local/etc/php/conf.d/zz-php2shell.ini
